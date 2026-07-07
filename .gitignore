@@ -1,0 +1,9 @@
+node_modules
+dist
+.wrangler
+.pnpm-store
+.idea
+.dev.vars
+.dev.vars.*
+.env
+.env.*

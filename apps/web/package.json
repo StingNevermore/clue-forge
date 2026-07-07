@@ -1,0 +1,19 @@
+{
+	"name": "@clue-forge/web",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "vite build",
+		"dev": "vite dev",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"vue": "^3.5.0"
+	},
+	"devDependencies": {
+		"@clue-forge/tsconfig": "workspace:*",
+		"@vitejs/plugin-vue": "^6.0.0",
+		"typescript": "^5.8.3",
+		"vite": "^7.0.0"
+	}
+}

@@ -1,0 +1,4 @@
+{
+	"extends": "@clue-forge/tsconfig/base.json",
+	"include": ["src/**/*.ts", "worker-configuration.d.ts"]
+}
