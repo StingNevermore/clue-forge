@@ -12,7 +12,8 @@
 			"!**/dist",
 			"!**/.wrangler",
 			"!**/.idea",
-			"!apps/api/worker-configuration.d.ts"
+			"!apps/api/worker-configuration.d.ts",
+			"!apps/web/worker-configuration.d.ts"
 		]
 	},
 	"formatter": {

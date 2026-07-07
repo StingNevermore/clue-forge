@@ -1,8 +1,7 @@
-interface Env {
-	API: Fetcher;
-}
-
-export const onRequest: PagesFunction<Env> = ({ env, request }) => {
+export const onRequest: PagesFunction<CloudflareBindings> = ({
+	env,
+	request,
+}) => {
 	const url = new URL(request.url);
 	url.pathname = url.pathname.replace(/^\/api/, "") || "/";
 	return env.API.fetch(new Request(url, request));

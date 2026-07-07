@@ -2,14 +2,14 @@
 	"extends": "@clue-forge/tsconfig/base.json",
 	"compilerOptions": {
 		"jsx": "preserve",
-		"lib": ["ES2022", "DOM", "DOM.Iterable"],
-		"types": ["@cloudflare/workers-types"]
+		"lib": ["ES2022", "DOM", "DOM.Iterable"]
 	},
 	"include": [
 		"src/**/*.ts",
 		"src/**/*.d.ts",
 		"src/**/*.vue",
 		"functions/**/*.ts",
+		"worker-configuration.d.ts",
 		"vite.config.ts"
 	]
 }

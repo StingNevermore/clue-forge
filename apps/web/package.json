@@ -5,6 +5,7 @@
 	"scripts": {
 		"build": "vite build",
 		"dev": "vite dev",
+		"types": "wrangler types --env-interface CloudflareBindings",
 		"typecheck": "vue-tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
