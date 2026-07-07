@@ -4,16 +4,17 @@
 	"type": "module",
 	"scripts": {
 		"build": "pnpm --filter @clue-forge/web build",
+		"build:pages": "pnpm build && pnpm -C apps/web exec wrangler pages functions build functions --outfile dist/_worker.js --build-output-directory dist --output-routes-path dist/_routes.json",
 		"check": "pnpm check:biome && pnpm typecheck",
 		"check:biome": "biome check .",
 		"check:biome:fix": "biome check --write .",
-		"dev": "pnpm build && pnpm -C apps/web exec wrangler pages dev dist -c wrangler.jsonc -c ../api/wrangler.jsonc",
+		"dev": "pnpm build:pages && pnpm -C apps/web exec wrangler pages dev dist -c wrangler.jsonc -c ../api/wrangler.jsonc",
 		"format": "biome format --write .",
 		"lint": "biome lint .",
 		"lint:fix": "biome lint --write .",
 		"typecheck": "pnpm -r --if-present typecheck",
 		"deploy:api": "pnpm -C apps/api exec wrangler deploy -c wrangler.jsonc",
-		"deploy:web": "pnpm build && pnpm -C apps/web exec wrangler pages deploy dist -c wrangler.jsonc"
+		"deploy:web": "pnpm build:pages && pnpm -C apps/web exec wrangler pages deploy dist"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.2",
