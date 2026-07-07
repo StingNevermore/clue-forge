@@ -4,7 +4,7 @@
 	"type": "module",
 	"scripts": {
 		"build": "pnpm --filter @clue-forge/web build",
-		"build:pages": "pnpm build && pnpm -C apps/web exec wrangler pages functions build functions --outfile dist/_worker.js --build-output-directory dist --output-routes-path dist/_routes.json",
+		"build:pages": "pnpm --filter @clue-forge/web build",
 		"check": "pnpm check:biome && pnpm typecheck",
 		"check:biome": "biome check .",
 		"check:biome:fix": "biome check --write .",
