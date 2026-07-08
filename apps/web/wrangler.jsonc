@@ -1,6 +1,6 @@
 {
 	"$schema": "../../node_modules/wrangler/config-schema.json",
-	"name": "clue-forge-web",
+	"name": "clue-forge",
 	"main": "./src/worker.ts",
 	"compatibility_date": "2026-07-07",
 	"compatibility_flags": ["nodejs_compat"],
@@ -20,10 +20,17 @@
 			"head_sampling_rate": 0.01
 		}
 	},
-	"services": [
+	"d1_databases": [
 		{
-			"binding": "API",
-			"service": "clue-forge-api"
+			"binding": "NOVEL_DB",
+			"database_name": "clue-forge",
+			"database_id": "927d5961-48c8-4fb1-ade8-ba8447171b95"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "NOVEL_BUCKET",
+			"bucket_name": "clue-forge-novels"
 		}
 	]
 }

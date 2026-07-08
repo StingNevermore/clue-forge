@@ -1,19 +1,19 @@
 {
-	"name": "@clue-forge/api",
+	"name": "@clue-forge/server",
 	"private": true,
 	"type": "module",
+	"exports": {
+		"./app": "./src/app.ts"
+	},
 	"scripts": {
-		"dev": "wrangler dev -c wrangler.jsonc",
 		"test": "vitest run",
-		"types": "wrangler types --env-interface CloudflareBindings",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"devDependencies": {
 		"@clue-forge/tsconfig": "workspace:*",
 		"@types/node": "^26.1.0",
 		"typescript": "^5.8.3",
-		"vitest": "^4.1.9",
-		"wrangler": "^4.0.0"
+		"vitest": "^4.1.9"
 	},
 	"dependencies": {
 		"hono": "^4.12.27"

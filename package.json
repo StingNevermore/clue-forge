@@ -7,13 +7,12 @@
 		"check": "pnpm check:biome && pnpm typecheck",
 		"check:biome": "biome check .",
 		"check:biome:fix": "biome check --write .",
-		"dev": "pnpm build && pnpm -C apps/web exec wrangler dev -c wrangler.jsonc -c ../api/wrangler.jsonc",
+		"dev": "pnpm build && pnpm -C apps/web exec wrangler dev -c wrangler.jsonc",
 		"format": "biome format --write .",
 		"lint": "biome lint .",
 		"lint:fix": "biome lint --write .",
 		"typecheck": "pnpm -r --if-present typecheck",
-		"deploy:api": "pnpm -C apps/api exec wrangler deploy -c wrangler.jsonc",
-		"deploy:web": "pnpm build && pnpm -C apps/web exec wrangler deploy -c wrangler.jsonc"
+		"deploy": "pnpm build && pnpm -C apps/web exec wrangler deploy -c wrangler.jsonc"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.2",

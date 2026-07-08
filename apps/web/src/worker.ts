@@ -1,9 +1,11 @@
+import { app } from "@clue-forge/server/app";
+
 export default {
-	fetch(request, env) {
+	fetch(request, env, context) {
 		const url = new URL(request.url);
 		if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
 			url.pathname = url.pathname.replace(/^\/api/, "") || "/";
-			return env.API.fetch(new Request(url, request));
+			return app.fetch(new Request(url, request), env, context);
 		}
 
 		return env.ASSETS.fetch(request);
