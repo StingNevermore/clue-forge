@@ -18,6 +18,26 @@ export type Brief = {
 	limits: string[];
 };
 
+export type CaseTruthStatus = "draft" | "confirmed";
+
+export type CaseTruth = {
+	victim: string;
+	surfaceMystery: string;
+	truth: string;
+	culprit: string;
+	motive: string;
+	method: string;
+	coverUp: string;
+	finalTwist: string;
+	reasoningHook: string;
+	status: CaseTruthStatus;
+};
+
+export type CaseTruthOption = CaseTruth & {
+	id: string;
+	title: string;
+};
+
 export type Confirmation = {
 	stage: NovelStage;
 	status: ConfirmationStatus;
@@ -37,15 +57,8 @@ export type ChapterPlan = {
 export type NovelState = {
 	stage: NovelStage;
 	brief: Brief;
-	case: {
-		surfaceMystery: string;
-		truth: string;
-		culprit: string;
-		motive: string;
-		method: string;
-		coverUp: string;
-		finalTwist: string;
-	};
+	case: CaseTruth;
+	caseTruthOptions: CaseTruthOption[];
 	characters: unknown[];
 	timeline: unknown[];
 	clues: unknown[];
@@ -63,11 +76,23 @@ export type ConfirmStepRequest = {
 	stage: NovelStage;
 	decision: string;
 	lockedFields: string[];
+	caseTruth?: CaseTruth;
+};
+
+export type GenerateStepRequest = {
+	stage: NovelStage;
+	feedback?: string;
+	provider?: string;
 };
 
 export type NeedsClarificationResponse = {
 	error: "needs_clarification";
 	questions: string[];
+};
+
+export type StageConflictResponse = {
+	error: "stage_conflict";
+	message: string;
 };
 
 export type NovelSummary = {

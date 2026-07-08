@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
 	})),
 	confirmStep: vi.fn(),
 	createNovel: vi.fn(),
+	generateStep: vi.fn(),
 	loadNovelState: vi.fn(),
 }));
 
@@ -14,6 +15,7 @@ vi.mock("./service", () => ({
 	confirmStep: mocks.confirmStep,
 	createNovel: mocks.createNovel,
 	draftChapter: mocks.draftChapter,
+	generateStep: mocks.generateStep,
 }));
 
 vi.mock("./storage", () => ({
@@ -108,5 +110,62 @@ describe("novel routes", () => {
 			2,
 			"deepseek",
 		);
+	});
+
+	it("generates case truth options for the current stage", async () => {
+		mocks.generateStep.mockResolvedValueOnce({
+			version: "v2",
+			state: { stage: "case_truth", caseTruthOptions: [] },
+		});
+
+		const env = {};
+		const response = await novelRoutes.request(
+			"/novels/novel-id/generate",
+			{
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					stage: "case_truth",
+					feedback: "更偏社会派",
+					provider: "deepseek",
+				}),
+			},
+			env,
+		);
+
+		expect(response.status).toBe(200);
+		expect(mocks.generateStep).toHaveBeenCalledWith(env, "novel-id", {
+			stage: "case_truth",
+			feedback: "更偏社会派",
+			provider: "deepseek",
+		});
+	});
+
+	it("returns 409 when confirmation stage does not match current state", async () => {
+		mocks.confirmStep.mockResolvedValueOnce({
+			error: "stage_conflict",
+			message: "stage must match current state",
+		});
+
+		const response = await novelRoutes.request(
+			"/novels/novel-id/confirm",
+			{
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					stage: "case_truth",
+					decision: "确认",
+					lockedFields: [],
+					caseTruth: {},
+				}),
+			},
+			{},
+		);
+
+		expect(response.status).toBe(409);
+		expect(await response.json()).toStrictEqual({
+			error: "stage_conflict",
+			message: "stage must match current state",
+		});
 	});
 });

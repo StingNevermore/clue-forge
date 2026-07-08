@@ -31,9 +31,29 @@ export type Confirmation = {
 	createdAt: string;
 };
 
+export type CaseTruth = {
+	victim: string;
+	surfaceMystery: string;
+	truth: string;
+	culprit: string;
+	motive: string;
+	method: string;
+	coverUp: string;
+	finalTwist: string;
+	reasoningHook: string;
+	status: "draft" | "confirmed";
+};
+
+export type CaseTruthOption = CaseTruth & {
+	id: string;
+	title: string;
+};
+
 export type NovelState = {
 	stage: NovelStage;
 	brief: Brief;
+	case: CaseTruth;
+	caseTruthOptions: CaseTruthOption[];
 	confirmations: Confirmation[];
 };
 
@@ -66,6 +86,14 @@ const requestJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
 		if (response.status === 409 && isNeedsClarificationBody(body)) {
 			throw new NeedsClarificationError(body.questions);
 		}
+		if (
+			typeof body === "object" &&
+			body !== null &&
+			"message" in body &&
+			typeof body.message === "string"
+		) {
+			throw new Error(body.message);
+		}
 		throw new Error(`Request failed: ${response.status}`);
 	}
 	return response.json() as Promise<T>;
@@ -94,6 +122,41 @@ export const confirmBriefInput = (id: string, decision: string) =>
 					"brief.length",
 					"brief.limits",
 				],
+			}),
+		},
+	);
+
+export const generateCaseTruth = (
+	id: string,
+	input: { feedback?: string; provider?: string },
+) =>
+	requestJson<{ version: string; state: NovelState }>(
+		`/api/novels/${id}/generate`,
+		{
+			method: "POST",
+			body: JSON.stringify({ stage: "case_truth", ...input }),
+		},
+	);
+
+export const confirmCaseTruth = (
+	id: string,
+	decision: string,
+	caseTruth: CaseTruth,
+) =>
+	requestJson<{ version: string; state: NovelState }>(
+		`/api/novels/${id}/confirm`,
+		{
+			method: "POST",
+			body: JSON.stringify({
+				stage: "case_truth",
+				decision,
+				lockedFields: [
+					"case.culprit",
+					"case.motive",
+					"case.method",
+					"case.finalTwist",
+				],
+				caseTruth,
 			}),
 		},
 	);
