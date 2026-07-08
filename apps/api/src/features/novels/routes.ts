@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { confirmStep, createNovel } from "./service";
+import { confirmStep, createNovel, draftChapter } from "./service";
 import { loadNovelState } from "./storage";
 import type { ConfirmStepRequest, CreateNovelRequest } from "./types";
 
@@ -30,5 +30,19 @@ novelRoutes.post("/novels/:id/confirm", async (context) => {
 	}
 
 	const result = await confirmStep(context.env, context.req.param("id"), input);
+	return context.json(result);
+});
+
+novelRoutes.post("/novels/:id/chapters/:chapterNo/draft", async (context) => {
+	const chapterNo = Number(context.req.param("chapterNo"));
+	if (!Number.isInteger(chapterNo) || chapterNo < 1) {
+		return context.json({ error: "chapterNo must be a positive integer" }, 400);
+	}
+
+	const result = await draftChapter(
+		context.env,
+		context.req.param("id"),
+		chapterNo,
+	);
 	return context.json(result);
 });

@@ -57,3 +57,9 @@ export type NovelSummary = {
 	currentVersion: string | null;
 	updatedAt: string;
 };
+
+export type ChapterDraft = {
+	chapterNo: number;
+	title: string;
+	body: string;
+};

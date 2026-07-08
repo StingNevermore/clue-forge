@@ -1,9 +1,11 @@
-import type { NovelState, NovelSummary } from "./types";
+import type { ChapterDraft, NovelState, NovelSummary } from "./types";
 
 const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
 const stateKey = (novelId: string, version: string) =>
 	`novels/${novelId}/state/${version}.json`;
+const chapterKey = (novelId: string, chapterNo: number, version: string) =>
+	`novels/${novelId}/chapters/${chapterNo}/${version}.md`;
 
 export const createNovelRecord = async (
 	env: CloudflareBindings,
@@ -78,6 +80,49 @@ export const saveNovelVersion = async (
 		env.NOVEL_DB.prepare(
 			"UPDATE novels SET current_version = ?, updated_at = ? WHERE id = ?",
 		).bind(version, createdAt, novelId),
+	]);
+
+	return version;
+};
+
+export const saveChapterDraft = async (
+	env: CloudflareBindings,
+	novelId: string,
+	draft: ChapterDraft,
+	state: NovelState,
+): Promise<string> => {
+	const chapterId = id();
+	const version = id();
+	const createdAt = now();
+	const stateR2Key = stateKey(novelId, version);
+	const chapterR2Key = chapterKey(novelId, draft.chapterNo, version);
+
+	await env.NOVEL_BUCKET.put(stateR2Key, JSON.stringify(state));
+	await env.NOVEL_BUCKET.put(chapterR2Key, draft.body);
+	await env.NOVEL_DB.batch([
+		env.NOVEL_DB.prepare(
+			"INSERT INTO versions (id, novel_id, kind, r2_key, created_at) VALUES (?, ?, ?, ?, ?)",
+		).bind(version, novelId, "chapter_draft", stateR2Key, createdAt),
+		env.NOVEL_DB.prepare(
+			"UPDATE novels SET current_version = ?, updated_at = ? WHERE id = ?",
+		).bind(version, createdAt, novelId),
+		env.NOVEL_DB.prepare(
+			`INSERT INTO chapters (id, novel_id, chapter_no, title, status, r2_key, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(novel_id, chapter_no) DO UPDATE SET
+				title = excluded.title,
+				status = excluded.status,
+				r2_key = excluded.r2_key,
+				updated_at = excluded.updated_at`,
+		).bind(
+			chapterId,
+			novelId,
+			draft.chapterNo,
+			draft.title,
+			"draft",
+			chapterR2Key,
+			createdAt,
+		),
 	]);
 
 	return version;

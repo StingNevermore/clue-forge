@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applyConfirmation, makeInitialState } from "./service";
+import {
+	applyConfirmation,
+	draftChapterFromState,
+	makeInitialState,
+} from "./service";
 
 describe("novel workflow service", () => {
 	it("creates initial state from title keywords", () => {
@@ -43,5 +47,24 @@ describe("novel workflow service", () => {
 				createdAt: "2026-07-08T00:00:00.000Z",
 			},
 		]);
+	});
+
+	it("drafts chapter from chapter plan without new facts", () => {
+		const state = makeInitialState({ title: "仪式杀人", keywords: ["现代"] });
+		state.chapters = [
+			{
+				chapter: 1,
+				purpose: "案发、谜面、主角进入案件",
+				newClues: [],
+				misdirection: "",
+				mustNotReveal: "真凶身份",
+			},
+		];
+
+		expect(draftChapterFromState(state, 1)).toStrictEqual({
+			chapterNo: 1,
+			title: "第1章",
+			body: "本章功能：案发、谜面、主角进入案件\n\n本章只基于已确认设定生成，不新增关键证据。",
+		});
 	});
 });

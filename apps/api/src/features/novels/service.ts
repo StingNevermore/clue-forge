@@ -1,9 +1,11 @@
 import {
 	createNovelRecord,
 	loadNovelState,
+	saveChapterDraft,
 	saveNovelVersion,
 } from "./storage";
 import type {
+	ChapterDraft,
 	ConfirmStepRequest,
 	CreateNovelRequest,
 	NovelState,
@@ -67,4 +69,28 @@ export const confirmStep = async (
 	const nextState = applyConfirmation(state, input, new Date().toISOString());
 	const version = await saveNovelVersion(env, novelId, "confirmation", nextState);
 	return { version, state: nextState };
+};
+
+export const draftChapterFromState = (
+	state: NovelState,
+	chapterNo: number,
+): ChapterDraft => {
+	const plan = state.chapters.find((chapter) => chapter.chapter === chapterNo);
+	const purpose = plan?.purpose ?? "推进案件调查";
+	return {
+		chapterNo,
+		title: `第${chapterNo}章`,
+		body: `本章功能：${purpose}\n\n本章只基于已确认设定生成，不新增关键证据。`,
+	};
+};
+
+export const draftChapter = async (
+	env: CloudflareBindings,
+	novelId: string,
+	chapterNo: number,
+): Promise<{ version: string; draft: ChapterDraft }> => {
+	const state = await loadNovelState(env, novelId);
+	const draft = draftChapterFromState(state, chapterNo);
+	const version = await saveChapterDraft(env, novelId, draft, state);
+	return { version, draft };
 };
