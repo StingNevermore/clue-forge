@@ -5,6 +5,10 @@ import type { ConfirmStepRequest, CreateNovelRequest } from "./types";
 
 export const novelRoutes = new Hono<{ Bindings: CloudflareBindings }>();
 
+type DraftChapterRequest = {
+	provider?: string;
+};
+
 novelRoutes.post("/novels", async (context) => {
 	const input = await context.req.json<CreateNovelRequest>();
 	if (!input.title || !Array.isArray(input.keywords)) {
@@ -38,11 +42,15 @@ novelRoutes.post("/novels/:id/chapters/:chapterNo/draft", async (context) => {
 	if (!Number.isInteger(chapterNo) || chapterNo < 1) {
 		return context.json({ error: "chapterNo must be a positive integer" }, 400);
 	}
+	const input = await context.req
+		.json<DraftChapterRequest>()
+		.catch((): DraftChapterRequest => ({}));
 
 	const result = await draftChapter(
 		context.env,
 		context.req.param("id"),
 		chapterNo,
+		input.provider,
 	);
 	return context.json(result);
 });

@@ -1,3 +1,4 @@
+import type { LlmEnv } from "../../llm";
 import { generateChapterDraft } from "./llm";
 import {
 	createNovelRecord,
@@ -94,9 +95,15 @@ export const draftChapter = async (
 	env: CloudflareBindings,
 	novelId: string,
 	chapterNo: number,
+	provider?: string,
 ): Promise<{ version: string; draft: ChapterDraft }> => {
 	const state = await loadNovelState(env, novelId);
-	const draft = await generateChapterDraft(state, chapterNo);
+	const draft = await generateChapterDraft(
+		env as LlmEnv,
+		state,
+		chapterNo,
+		provider,
+	);
 	const version = await saveChapterDraft(env, novelId, draft, state);
 	return { version, draft };
 };
