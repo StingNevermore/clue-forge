@@ -13,6 +13,14 @@ app.route("/", novelRoutes);
 app.notFound((context) => context.json({ error: "Not found" }, 404));
 
 app.onError((error, context) => {
-	console.error(error);
+	const url = new URL(context.req.url);
+	console.error(
+		JSON.stringify({
+			message: "request failed",
+			error: error instanceof Error ? error.message : String(error),
+			method: context.req.method,
+			path: url.pathname,
+		}),
+	);
 	return context.json({ error: "Internal server error" }, 500);
 });
