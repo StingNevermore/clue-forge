@@ -1,7 +1,25 @@
 export type ConfirmationStatus = "draft" | "confirmed";
 
+export type NovelStage =
+	| "brief_input"
+	| "case_truth"
+	| "case_truth_confirmed"
+	| "case_structure"
+	| "case_structure_confirmed"
+	| "chapter_plan"
+	| "chapter_plan_confirmed"
+	| "drafting"
+	| "revision";
+
+export type Brief = {
+	keywords: string[];
+	style: string;
+	length: string;
+	limits: string[];
+};
+
 export type Confirmation = {
-	step: string;
+	stage: NovelStage;
 	status: ConfirmationStatus;
 	summary: string;
 	lockedFields: string[];
@@ -17,12 +35,8 @@ export type ChapterPlan = {
 };
 
 export type NovelState = {
-	brief: {
-		keywords: string[];
-		length: string;
-		style: string;
-		limits: string[];
-	};
+	stage: NovelStage;
+	brief: Brief;
 	case: {
 		surfaceMystery: string;
 		truth: string;
@@ -42,13 +56,18 @@ export type NovelState = {
 
 export type CreateNovelRequest = {
 	title: string;
-	keywords: string[];
+	brief: Brief;
 };
 
 export type ConfirmStepRequest = {
-	step: string;
+	stage: NovelStage;
 	decision: string;
 	lockedFields: string[];
+};
+
+export type NeedsClarificationResponse = {
+	error: "needs_clarification";
+	questions: string[];
 };
 
 export type NovelSummary = {

@@ -9,10 +9,20 @@ type DraftChapterRequest = {
 	provider?: string;
 };
 
+const isStringArray = (value: unknown): value is string[] =>
+	Array.isArray(value) && value.every((item) => typeof item === "string");
+
 novelRoutes.post("/novels", async (context) => {
 	const input = await context.req.json<CreateNovelRequest>();
-	if (!input.title || !Array.isArray(input.keywords)) {
-		return context.json({ error: "title and keywords are required" }, 400);
+	if (
+		!input.title?.trim() ||
+		!input.brief ||
+		!isStringArray(input.brief.keywords) ||
+		typeof input.brief.style !== "string" ||
+		typeof input.brief.length !== "string" ||
+		!isStringArray(input.brief.limits)
+	) {
+		return context.json({ error: "title and brief are required" }, 400);
 	}
 
 	const novel = await createNovel(context.env, input);
@@ -26,14 +36,17 @@ novelRoutes.get("/novels/:id", async (context) => {
 
 novelRoutes.post("/novels/:id/confirm", async (context) => {
 	const input = await context.req.json<ConfirmStepRequest>();
-	if (!input.step || !input.decision || !Array.isArray(input.lockedFields)) {
+	if (!input.stage || !input.decision || !Array.isArray(input.lockedFields)) {
 		return context.json(
-			{ error: "step, decision, and lockedFields are required" },
+			{ error: "stage, decision, and lockedFields are required" },
 			400,
 		);
 	}
 
 	const result = await confirmStep(context.env, context.req.param("id"), input);
+	if ("error" in result && result.error === "needs_clarification") {
+		return context.json(result, 409);
+	}
 	return context.json(result);
 });
 

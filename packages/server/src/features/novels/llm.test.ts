@@ -5,6 +5,7 @@ import type { NovelState } from "./types";
 type FetchCall = [RequestInfo | URL, RequestInit?];
 
 const state: NovelState = {
+	stage: "chapter_plan_confirmed",
 	brief: {
 		keywords: ["现代", "刑警"],
 		length: "30-60章",
