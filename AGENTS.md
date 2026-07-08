@@ -7,7 +7,7 @@
 - Use temporary `XDG_CONFIG_HOME` only for unauthenticated local checks such as dry-runs or build validation where Cloudflare account state is irrelevant.
 - For deployment verification, prefer actual Wrangler state:
   - `pnpm -C apps/api exec wrangler deployments list --config wrangler.jsonc`
-  - `pnpm -C apps/web exec wrangler pages deployment list --project-name clue-forge-web`
+  - `pnpm -C apps/web exec wrangler deployments list --config wrangler.jsonc`
 - Confirm the deployed app with HTTP checks after Wrangler reports success:
-  - `curl -s -I https://clue-forge-web.pages.dev`
-  - `curl -s https://clue-forge-web.pages.dev/api/health`
+  - `curl -s -I https://<active-web-worker-domain>`
+  - `curl -s https://<active-web-worker-domain>/api/health`
