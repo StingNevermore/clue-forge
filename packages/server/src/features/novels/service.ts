@@ -1,5 +1,5 @@
 import type { LlmEnv } from "../../llm";
-import { generateChapterDraft } from "./llm";
+import { generateCaseTruthOptions, generateChapterDraft } from "./llm";
 import {
 	createNovelRecord,
 	loadNovelState,
@@ -8,13 +8,16 @@ import {
 } from "./storage";
 import type {
 	Brief,
+	CaseTruth,
 	ChapterDraft,
 	ConfirmStepRequest,
 	CreateNovelRequest,
+	GenerateStepRequest,
 	NeedsClarificationResponse,
 	NovelStage,
 	NovelState,
 	NovelSummary,
+	StageConflictResponse,
 } from "./types";
 
 const uniqueTrimmed = (items: string[]) => [
@@ -30,6 +33,68 @@ export const normalizeBrief = (brief: Brief): Brief => ({
 
 const hasLengthIntent = (length: string) =>
 	/[0-9一二三四五六七八九十百千万两短中长章字篇]/.test(length);
+
+const caseTruthLockedFields = [
+	"case.culprit",
+	"case.motive",
+	"case.method",
+	"case.finalTwist",
+];
+
+const emptyCaseTruth = (): CaseTruth => ({
+	victim: "",
+	surfaceMystery: "",
+	truth: "",
+	culprit: "",
+	motive: "",
+	method: "",
+	coverUp: "",
+	finalTwist: "",
+	reasoningHook: "",
+	status: "draft",
+});
+
+const caseTruthFields = [
+	"victim",
+	"surfaceMystery",
+	"culprit",
+	"motive",
+	"method",
+	"coverUp",
+	"finalTwist",
+	"reasoningHook",
+] as const;
+
+const caseTruthIncompleteQuestion =
+	"案件真相需要包含被害人、谜面、真凶、动机、作案过程、掩盖方式、最终反转和推理卖点。";
+
+export const validateCaseTruthInput = (
+	caseTruth: CaseTruth | undefined,
+): string[] => {
+	const complete =
+		!!caseTruth &&
+		caseTruthFields.every((field) => {
+			const value = caseTruth[field];
+			return typeof value === "string" && value.trim().length > 0;
+		});
+	return complete ? [] : [caseTruthIncompleteQuestion];
+};
+
+const hasCompleteCaseTruth = (caseTruth: CaseTruth | undefined) =>
+	validateCaseTruthInput(caseTruth).length === 0;
+
+const confirmCaseTruth = (caseTruth: CaseTruth): CaseTruth => ({
+	victim: caseTruth.victim.trim(),
+	surfaceMystery: caseTruth.surfaceMystery.trim(),
+	truth: caseTruth.truth.trim() || caseTruth.method.trim(),
+	culprit: caseTruth.culprit.trim(),
+	motive: caseTruth.motive.trim(),
+	method: caseTruth.method.trim(),
+	coverUp: caseTruth.coverUp.trim(),
+	finalTwist: caseTruth.finalTwist.trim(),
+	reasoningHook: caseTruth.reasoningHook.trim(),
+	status: "confirmed",
+});
 
 export const validateBriefInput = (brief: Brief): string[] => {
 	const normalized = normalizeBrief(brief);
@@ -63,20 +128,17 @@ export const validateBriefInput = (brief: Brief): string[] => {
 };
 
 const nextStage = (stage: NovelStage): NovelStage =>
-	stage === "brief_input" ? "case_truth" : stage;
+	stage === "brief_input"
+		? "case_truth"
+		: stage === "case_truth"
+			? "case_truth_confirmed"
+			: stage;
 
 export const makeInitialState = (input: CreateNovelRequest): NovelState => ({
 	stage: "brief_input",
 	brief: normalizeBrief(input.brief),
-	case: {
-		surfaceMystery: "",
-		truth: "",
-		culprit: "",
-		motive: "",
-		method: "",
-		coverUp: "",
-		finalTwist: "",
-	},
+	case: emptyCaseTruth(),
+	caseTruthOptions: [],
 	characters: [],
 	timeline: [],
 	clues: [],
@@ -89,20 +151,27 @@ export const applyConfirmation = (
 	state: NovelState,
 	input: ConfirmStepRequest,
 	createdAt: string,
-): NovelState => ({
-	...state,
-	stage: nextStage(input.stage),
-	confirmations: [
-		...state.confirmations,
-		{
-			stage: input.stage,
-			status: "confirmed",
-			summary: input.decision,
-			lockedFields: input.lockedFields,
-			createdAt,
-		},
-	],
-});
+): NovelState => {
+	const isCaseTruth = input.stage === "case_truth";
+	return {
+		...state,
+		stage: nextStage(input.stage),
+		case:
+			isCaseTruth && input.caseTruth
+				? confirmCaseTruth(input.caseTruth)
+				: state.case,
+		confirmations: [
+			...state.confirmations,
+			{
+				stage: input.stage,
+				status: "confirmed",
+				summary: input.decision,
+				lockedFields: isCaseTruth ? caseTruthLockedFields : input.lockedFields,
+				createdAt,
+			},
+		],
+	};
+};
 
 export const createNovel = (
 	env: CloudflareBindings,
@@ -115,14 +184,28 @@ export const confirmStep = async (
 	novelId: string,
 	input: ConfirmStepRequest,
 ): Promise<
-	{ version: string; state: NovelState } | NeedsClarificationResponse
+	| { version: string; state: NovelState }
+	| NeedsClarificationResponse
+	| StageConflictResponse
 > => {
 	const state = await loadNovelState(env, novelId);
+	if (input.stage !== state.stage) {
+		return {
+			error: "stage_conflict",
+			message: "stage must match current state",
+		};
+	}
 	if (input.stage === "brief_input") {
 		const questions = validateBriefInput(state.brief);
 		if (questions.length > 0) {
 			return { error: "needs_clarification", questions };
 		}
+	}
+	if (input.stage === "case_truth" && !hasCompleteCaseTruth(input.caseTruth)) {
+		return {
+			error: "needs_clarification",
+			questions: validateCaseTruthInput(input.caseTruth),
+		};
 	}
 
 	const nextState = applyConfirmation(state, input, new Date().toISOString());
@@ -130,6 +213,41 @@ export const confirmStep = async (
 		env,
 		novelId,
 		"confirmation",
+		nextState,
+	);
+	return { version, state: nextState };
+};
+
+export const generateStep = async (
+	env: CloudflareBindings,
+	novelId: string,
+	input: GenerateStepRequest,
+): Promise<{ version: string; state: NovelState } | StageConflictResponse> => {
+	const state = await loadNovelState(env, novelId);
+	if (input.stage !== state.stage) {
+		return {
+			error: "stage_conflict",
+			message: "stage must match current state",
+		};
+	}
+	if (input.stage !== "case_truth") {
+		return {
+			error: "stage_conflict",
+			message: "only case_truth generation is supported",
+		};
+	}
+
+	const options = await generateCaseTruthOptions(
+		env as LlmEnv,
+		state,
+		input.feedback,
+		input.provider,
+	);
+	const nextState = { ...state, caseTruthOptions: options };
+	const version = await saveNovelVersion(
+		env,
+		novelId,
+		"case_truth_generation",
 		nextState,
 	);
 	return { version, state: nextState };

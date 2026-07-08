@@ -1,7 +1,16 @@
 import { Hono } from "hono";
-import { confirmStep, createNovel, draftChapter } from "./service";
+import {
+	confirmStep,
+	createNovel,
+	draftChapter,
+	generateStep,
+} from "./service";
 import { loadNovelState } from "./storage";
-import type { ConfirmStepRequest, CreateNovelRequest } from "./types";
+import type {
+	ConfirmStepRequest,
+	CreateNovelRequest,
+	GenerateStepRequest,
+} from "./types";
 
 export const novelRoutes = new Hono<{ Bindings: CloudflareBindings }>();
 
@@ -45,6 +54,26 @@ novelRoutes.post("/novels/:id/confirm", async (context) => {
 
 	const result = await confirmStep(context.env, context.req.param("id"), input);
 	if ("error" in result && result.error === "needs_clarification") {
+		return context.json(result, 409);
+	}
+	if ("error" in result && result.error === "stage_conflict") {
+		return context.json(result, 409);
+	}
+	return context.json(result);
+});
+
+novelRoutes.post("/novels/:id/generate", async (context) => {
+	const input = await context.req.json<GenerateStepRequest>();
+	if (input.stage !== "case_truth") {
+		return context.json({ error: "stage must be case_truth" }, 400);
+	}
+
+	const result = await generateStep(
+		context.env,
+		context.req.param("id"),
+		input,
+	);
+	if ("error" in result && result.error === "stage_conflict") {
 		return context.json(result, 409);
 	}
 	return context.json(result);
