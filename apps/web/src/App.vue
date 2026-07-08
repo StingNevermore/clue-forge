@@ -1,94 +1,89 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
+import { confirmStep, createNovel, loadNovel, type NovelState } from "./api";
 
-type Health = {
-	ok: boolean;
-	service: string;
-	time: string;
-};
-
-const isHealth = (value: unknown): value is Health => {
-	if (!value || typeof value !== "object") {
-		return false;
-	}
-
-	const health = value as Record<string, unknown>;
-	return (
-		typeof health.ok === "boolean" &&
-		typeof health.service === "string" &&
-		typeof health.time === "string"
-	);
-};
-
-const loading = ref(true);
-const health = ref<Health | null>(null);
+const title = ref("仪式杀人");
+const keywords = ref("现代,刑警,连环杀人,宗教仪式,反转");
+const decision = ref(
+	"现代都市刑侦，宗教仪式只是伪装，核心是真实旧案复仇。",
+);
+const novelId = ref("");
+const state = ref<NovelState | null>(null);
 const error = ref("");
+const loading = ref(false);
 
-fetch("/api/health")
-	.then(async (response) => {
-		if (!response.ok) {
-			throw new Error(`API returned ${response.status}`);
-		}
-		const body: unknown = await response.json().catch(() => {
-			throw new Error("API returned invalid health data");
-		});
+const keywordList = computed(() =>
+	keywords.value
+		.split(",")
+		.map((item) => item.trim())
+		.filter(Boolean),
+);
 
-		if (!isHealth(body)) {
-			throw new Error("API returned invalid health data");
-		}
-
-		health.value = body;
-	})
-	.catch((err: unknown) => {
-		error.value = err instanceof Error ? err.message : "API request failed";
-	})
-	.finally(() => {
+const run = async <T,>(fn: () => Promise<T>) => {
+	loading.value = true;
+	error.value = "";
+	try {
+		return await fn();
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : "请求失败";
+	} finally {
 		loading.value = false;
+	}
+};
+
+const create = () =>
+	run(async () => {
+		const novel = await createNovel(title.value, keywordList.value);
+		novelId.value = novel.id;
+		state.value = await loadNovel(novel.id);
+	});
+
+const confirm = () =>
+	run(async () => {
+		if (!novelId.value) {
+			throw new Error("请先创建小说项目");
+		}
+		const result = await confirmStep(novelId.value, decision.value);
+		state.value = result.state;
 	});
 </script>
 
 <template>
-	<main>
-		<a-card class="panel" :bordered="false">
-			<a-space direction="vertical" size="large" fill>
-				<a-space align="center" wrap>
-					<a-tag color="arcoblue">Arco Design Vue</a-tag>
-					<a-tag>Cloudflare Pages + Worker</a-tag>
-				</a-space>
+	<main class="workspace">
+		<section class="panel">
+			<h2>输入</h2>
+			<a-input v-model="title" placeholder="标题" />
+			<a-textarea v-model="keywords" :auto-size="{ minRows: 3, maxRows: 5 }" />
+			<a-button type="primary" :loading="loading" @click="create">
+				创建项目
+			</a-button>
+		</section>
 
-				<div>
-					<h1>Clue Forge</h1>
-					<p class="subtitle">Frontend UI framework smoke page</p>
-				</div>
+		<section class="panel">
+			<h2>确认</h2>
+			<a-textarea v-model="decision" :auto-size="{ minRows: 5, maxRows: 8 }" />
+			<a-button :disabled="!novelId" :loading="loading" @click="confirm">
+				确认本轮方向
+			</a-button>
+			<a-alert v-if="error" type="error" show-icon :title="error" />
+		</section>
 
-				<div v-if="loading" class="loading">
-					<a-spin tip="Checking backend..." />
-				</div>
-
-				<a-alert
-					v-else-if="error"
-					type="error"
-					show-icon
-					title="Backend check failed"
-				>
-					{{ error }}
-				</a-alert>
-
-				<a-space v-else-if="health" direction="vertical" size="medium" fill>
-					<a-alert type="success" show-icon title="Backend online">
-						Health endpoint returned valid data.
-					</a-alert>
-
-					<a-descriptions :column="1" bordered>
-						<a-descriptions-item label="Service">
-							{{ health.service }}
-						</a-descriptions-item>
-						<a-descriptions-item label="Time">
-							<time>{{ health.time }}</time>
-						</a-descriptions-item>
-					</a-descriptions>
-				</a-space>
-			</a-space>
-		</a-card>
+		<section class="panel">
+			<h2>状态</h2>
+			<a-descriptions v-if="state" :column="1" bordered>
+				<a-descriptions-item label="关键词">
+					{{ state.brief.keywords.join(" / ") }}
+				</a-descriptions-item>
+				<a-descriptions-item label="确认次数">
+					{{ state.confirmations.length }}
+				</a-descriptions-item>
+			</a-descriptions>
+			<a-empty v-else />
+			<a-list v-if="state" :data="state.confirmations">
+				<template #item="{ item }">
+					<a-list-item>{{ item.step }}: {{ item.summary }}</a-list-item>
+				</template>
+			</a-list>
+		</section>
 	</main>
 </template>
