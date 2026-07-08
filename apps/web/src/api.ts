@@ -14,7 +14,12 @@ export type Confirmation = {
 };
 
 export type NovelState = {
-	brief: { keywords: string[]; length: string; style: string; limits: string[] };
+	brief: {
+		keywords: string[];
+		length: string;
+		style: string;
+		limits: string[];
+	};
 	confirmations: Confirmation[];
 };
 

@@ -4,9 +4,7 @@ import { confirmStep, createNovel, loadNovel, type NovelState } from "./api";
 
 const title = ref("仪式杀人");
 const keywords = ref("现代,刑警,连环杀人,宗教仪式,反转");
-const decision = ref(
-	"现代都市刑侦，宗教仪式只是伪装，核心是真实旧案复仇。",
-);
+const decision = ref("现代都市刑侦，宗教仪式只是伪装，核心是真实旧案复仇。");
 const novelId = ref("");
 const state = ref<NovelState | null>(null);
 const error = ref("");
@@ -19,7 +17,7 @@ const keywordList = computed(() =>
 		.filter(Boolean),
 );
 
-const run = async <T,>(fn: () => Promise<T>) => {
+const run = async <T>(fn: () => Promise<T>) => {
 	loading.value = true;
 	error.value = "";
 	try {
@@ -31,6 +29,7 @@ const run = async <T,>(fn: () => Promise<T>) => {
 	}
 };
 
+// biome-ignore lint/correctness/noUnusedVariables: used by Vue template
 const create = () =>
 	run(async () => {
 		const novel = await createNovel(title.value, keywordList.value);
@@ -38,6 +37,7 @@ const create = () =>
 		state.value = await loadNovel(novel.id);
 	});
 
+// biome-ignore lint/correctness/noUnusedVariables: used by Vue template
 const confirm = () =>
 	run(async () => {
 		if (!novelId.value) {

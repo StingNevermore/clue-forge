@@ -12,11 +12,7 @@ describe("novel workflow service", () => {
 			keywords: ["现代", "刑警", "宗教仪式"],
 		});
 
-		expect(state.brief.keywords).toStrictEqual([
-			"现代",
-			"刑警",
-			"宗教仪式",
-		]);
+		expect(state.brief.keywords).toStrictEqual(["现代", "刑警", "宗教仪式"]);
 		expect(state.brief.length).toBe("30-60章");
 		expect(state.confirmations).toStrictEqual([]);
 	});

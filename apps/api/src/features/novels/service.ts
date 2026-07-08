@@ -68,7 +68,12 @@ export const confirmStep = async (
 ): Promise<{ version: string; state: NovelState }> => {
 	const state = await loadNovelState(env, novelId);
 	const nextState = applyConfirmation(state, input, new Date().toISOString());
-	const version = await saveNovelVersion(env, novelId, "confirmation", nextState);
+	const version = await saveNovelVersion(
+		env,
+		novelId,
+		"confirmation",
+		nextState,
+	);
 	return { version, state: nextState };
 };
 
