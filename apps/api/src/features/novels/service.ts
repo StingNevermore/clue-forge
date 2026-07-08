@@ -1,3 +1,4 @@
+import { generateChapterDraft } from "./llm";
 import {
 	createNovelRecord,
 	loadNovelState,
@@ -90,7 +91,7 @@ export const draftChapter = async (
 	chapterNo: number,
 ): Promise<{ version: string; draft: ChapterDraft }> => {
 	const state = await loadNovelState(env, novelId);
-	const draft = draftChapterFromState(state, chapterNo);
+	const draft = await generateChapterDraft(state, chapterNo);
 	const version = await saveChapterDraft(env, novelId, draft, state);
 	return { version, draft };
 };
