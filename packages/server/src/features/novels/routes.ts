@@ -70,8 +70,11 @@ novelRoutes.post("/novels/:id/confirm", async (context) => {
 
 novelRoutes.post("/novels/:id/generate", async (context) => {
 	const input = await context.req.json<GenerateStepRequest>();
-	if (input.stage !== "case_truth") {
-		return context.json({ error: "stage must be case_truth" }, 400);
+	if (input.stage !== "case_truth" && input.stage !== "case_structure") {
+		return context.json(
+			{ error: "stage must be case_truth or case_structure" },
+			400,
+		);
 	}
 
 	const result = await generateStep(

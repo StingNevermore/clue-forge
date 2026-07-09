@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+	applyCaseStructureGeneration,
 	applyConfirmation,
 	draftChapterFromState,
 	makeInitialState,
 	validateBriefInput,
+	validateCaseStructureInput,
 	validateCaseTruthInput,
 } from "./service";
 
@@ -149,6 +151,133 @@ describe("novel workflow service", () => {
 		]);
 	});
 
+	it("applies generated case structure and moves into case_structure review", () => {
+		const state = makeInitialState({
+			title: "仪式杀人",
+			brief: {
+				keywords: ["现代", "刑警"],
+				style: "",
+				length: "30章左右",
+				limits: [],
+			},
+		});
+		state.stage = "case_truth_confirmed";
+
+		const next = applyCaseStructureGeneration(state, {
+			timeline: [
+				{
+					time: "21:35",
+					location: "地下停车场",
+					actualEvent: "真凶转移尸体",
+					claimedEvent: "真凶声称在会议室",
+					people: ["林澈", "顾铭"],
+					readerKnowsAt: "第3章",
+					detectiveKnowsAt: "第18章",
+				},
+			],
+			characters: [
+				{
+					name: "林澈",
+					role: "刑警 / 真凶",
+					relationship: "被害人的旧案搭档",
+					motive: "掩盖十五年前伪证",
+					secret: "伪造旧案证词",
+					lie: "声称案发时在会议室",
+					truthStatus: "culprit",
+				},
+			],
+			clues: [
+				{
+					id: "c001",
+					description: "未发送短信",
+					firstSeen: "第3章",
+					surfaceMeaning: "看似指向前妻",
+					realMeaning: "实际指向备用手机",
+					payoff: "第26章",
+					fair: true,
+				},
+			],
+			qualityReports: [
+				{
+					pass: true,
+					questions: [],
+					problems: [],
+				},
+			],
+		});
+
+		expect(next.stage).toBe("case_structure");
+		expect(next.timeline).toHaveLength(1);
+		expect(next.characters).toHaveLength(1);
+		expect(next.clues).toHaveLength(1);
+		expect(next.qualityReports).toStrictEqual([
+			{ pass: true, questions: [], problems: [] },
+		]);
+	});
+
+	it("confirms case_structure and locks structure fields", () => {
+		const state = makeInitialState({
+			title: "仪式杀人",
+			brief: {
+				keywords: ["现代", "刑警"],
+				style: "",
+				length: "30章左右",
+				limits: [],
+			},
+		});
+		state.stage = "case_structure";
+		state.timeline = [
+			{
+				time: "21:35",
+				location: "地下停车场",
+				actualEvent: "真凶转移尸体",
+				claimedEvent: "真凶声称在会议室",
+				people: ["林澈", "顾铭"],
+				readerKnowsAt: "第3章",
+				detectiveKnowsAt: "第18章",
+			},
+		];
+		state.characters = [
+			{
+				name: "林澈",
+				role: "刑警 / 真凶",
+				relationship: "被害人的旧案搭档",
+				motive: "掩盖十五年前伪证",
+				secret: "伪造旧案证词",
+				lie: "声称案发时在会议室",
+				truthStatus: "culprit",
+			},
+		];
+		state.clues = [
+			{
+				id: "c001",
+				description: "未发送短信",
+				firstSeen: "第3章",
+				surfaceMeaning: "看似指向前妻",
+				realMeaning: "实际指向备用手机",
+				payoff: "第26章",
+				fair: true,
+			},
+		];
+
+		const next = applyConfirmation(
+			state,
+			{
+				stage: "case_structure",
+				decision: "确认结构设定",
+				lockedFields: [],
+			},
+			"2026-07-08T00:00:00.000Z",
+		);
+
+		expect(next.stage).toBe("case_structure_confirmed");
+		expect(next.confirmations[0]?.lockedFields).toStrictEqual([
+			"timeline",
+			"characters",
+			"clues",
+		]);
+	});
+
 	it("rejects incomplete case truth input", () => {
 		expect(validateCaseTruthInput(undefined)).toStrictEqual([
 			"案件真相需要包含被害人、谜面、真凶、动机、作案过程、掩盖方式、最终反转和推理卖点。",
@@ -167,6 +296,16 @@ describe("novel workflow service", () => {
 				status: "draft",
 			}),
 		).toHaveLength(1);
+	});
+
+	it("rejects incomplete case structure input", () => {
+		expect(
+			validateCaseStructureInput({
+				timeline: [],
+				characters: [],
+				clues: [],
+			}),
+		).toStrictEqual(["结构设定需要包含时间线、人物和线索。"]);
 	});
 
 	it("asks for clarification when brief_input is not ready", () => {

@@ -1,5 +1,9 @@
 import type { LlmEnv } from "../../llm";
-import { generateCaseTruthOptions, generateChapterDraft } from "./llm";
+import {
+	generateCaseStructure,
+	generateCaseTruthOptions,
+	generateChapterDraft,
+} from "./llm";
 import {
 	createNovelRecord,
 	listNovelRecords,
@@ -9,6 +13,7 @@ import {
 } from "./storage";
 import type {
 	Brief,
+	CaseStructure,
 	CaseTruth,
 	ChapterDraft,
 	ConfirmStepRequest,
@@ -42,6 +47,8 @@ const caseTruthLockedFields = [
 	"case.finalTwist",
 ];
 
+const caseStructureLockedFields = ["timeline", "characters", "clues"];
+
 const emptyCaseTruth = (): CaseTruth => ({
 	victim: "",
 	surfaceMystery: "",
@@ -68,6 +75,7 @@ const caseTruthFields = [
 
 const caseTruthIncompleteQuestion =
 	"案件真相需要包含被害人、谜面、真凶、动机、作案过程、掩盖方式、最终反转和推理卖点。";
+const caseStructureIncompleteQuestion = "结构设定需要包含时间线、人物和线索。";
 
 export const validateCaseTruthInput = (
 	caseTruth: CaseTruth | undefined,
@@ -83,6 +91,15 @@ export const validateCaseTruthInput = (
 
 const hasCompleteCaseTruth = (caseTruth: CaseTruth | undefined) =>
 	validateCaseTruthInput(caseTruth).length === 0;
+
+export const validateCaseStructureInput = (
+	structure: Pick<NovelState, "timeline" | "characters" | "clues">,
+): string[] =>
+	structure.timeline.length > 0 &&
+	structure.characters.length > 0 &&
+	structure.clues.length > 0
+		? []
+		: [caseStructureIncompleteQuestion];
 
 const confirmCaseTruth = (caseTruth: CaseTruth): CaseTruth => ({
 	victim: caseTruth.victim.trim(),
@@ -133,7 +150,9 @@ const nextStage = (stage: NovelStage): NovelStage =>
 		? "case_truth"
 		: stage === "case_truth"
 			? "case_truth_confirmed"
-			: stage;
+			: stage === "case_structure"
+				? "case_structure_confirmed"
+				: stage;
 
 export const makeInitialState = (input: CreateNovelRequest): NovelState => ({
 	stage: "brief_input",
@@ -154,6 +173,7 @@ export const applyConfirmation = (
 	createdAt: string,
 ): NovelState => {
 	const isCaseTruth = input.stage === "case_truth";
+	const isCaseStructure = input.stage === "case_structure";
 	return {
 		...state,
 		stage: nextStage(input.stage),
@@ -167,12 +187,28 @@ export const applyConfirmation = (
 				stage: input.stage,
 				status: "confirmed",
 				summary: input.decision,
-				lockedFields: isCaseTruth ? caseTruthLockedFields : input.lockedFields,
+				lockedFields: isCaseTruth
+					? caseTruthLockedFields
+					: isCaseStructure
+						? caseStructureLockedFields
+						: input.lockedFields,
 				createdAt,
 			},
 		],
 	};
 };
+
+export const applyCaseStructureGeneration = (
+	state: NovelState,
+	structure: CaseStructure,
+): NovelState => ({
+	...state,
+	stage: "case_structure",
+	timeline: structure.timeline,
+	characters: structure.characters,
+	clues: structure.clues,
+	qualityReports: structure.qualityReports ?? [],
+});
 
 export const createNovel = (
 	env: CloudflareBindings,
@@ -211,6 +247,12 @@ export const confirmStep = async (
 			questions: validateCaseTruthInput(input.caseTruth),
 		};
 	}
+	if (input.stage === "case_structure") {
+		const questions = validateCaseStructureInput(state);
+		if (questions.length > 0) {
+			return { error: "needs_clarification", questions };
+		}
+	}
 
 	const nextState = applyConfirmation(state, input, new Date().toISOString());
 	const version = await saveNovelVersion(
@@ -228,17 +270,37 @@ export const generateStep = async (
 	input: GenerateStepRequest,
 ): Promise<{ version: string; state: NovelState } | StageConflictResponse> => {
 	const state = await loadNovelState(env, novelId);
-	if (input.stage !== state.stage) {
+	const canGenerateCaseStructure =
+		input.stage === "case_structure" &&
+		(state.stage === "case_truth_confirmed" ||
+			state.stage === "case_structure");
+	if (input.stage !== state.stage && !canGenerateCaseStructure) {
 		return {
 			error: "stage_conflict",
 			message: "stage must match current state",
 		};
 	}
-	if (input.stage !== "case_truth") {
+	if (input.stage !== "case_truth" && input.stage !== "case_structure") {
 		return {
 			error: "stage_conflict",
-			message: "only case_truth generation is supported",
+			message: "only case_truth and case_structure generation are supported",
 		};
+	}
+	if (input.stage === "case_structure") {
+		const structure = await generateCaseStructure(
+			env as LlmEnv,
+			state,
+			input.feedback,
+			input.provider,
+		);
+		const nextState = applyCaseStructureGeneration(state, structure);
+		const version = await saveNovelVersion(
+			env,
+			novelId,
+			"case_structure_generation",
+			nextState,
+		);
+		return { version, state: nextState };
 	}
 
 	const options = await generateCaseTruthOptions(

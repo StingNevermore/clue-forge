@@ -18,6 +18,8 @@ export type EditorDraft = {
 	caseDecision: string;
 	selectedOptionId: string;
 	draftCase: CaseTruth | null;
+	structureFeedback?: string;
+	structureDecision?: string;
 };
 
 const readJson = <T>(key: string): T | null => {

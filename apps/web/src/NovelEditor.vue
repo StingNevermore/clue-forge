@@ -6,8 +6,10 @@ import {
 	type CaseTruth,
 	type CaseTruthOption,
 	confirmBriefInput,
+	confirmCaseStructure,
 	confirmCaseTruth,
 	createNovel,
+	generateCaseStructure,
 	generateCaseTruth,
 	loadNovel,
 	NeedsClarificationError,
@@ -22,7 +24,7 @@ import {
 	saveNewNovelDraft,
 } from "./drafts";
 
-type WizardStep = "brief" | "generate" | "finalize" | "result";
+type WizardStep = "brief" | "generate" | "finalize" | "structure" | "result";
 
 const route = useRoute();
 const router = useRouter();
@@ -39,6 +41,8 @@ const caseFeedback = ref("");
 const caseDecision = ref(
 	"确认此案件真相，锁定真凶、动机、作案方式和最终反转。",
 );
+const structureFeedback = ref("");
+const structureDecision = ref("确认时间线、人物和线索设定，进入章节大纲。");
 const novelId = ref("");
 const state = ref<NovelState | null>(null);
 const draftCase = ref<CaseTruth | null>(null);
@@ -73,16 +77,36 @@ const brief = computed(
 
 const briefJson = computed(() => JSON.stringify(brief.value));
 const hasLockedBrief = computed(() => !!state.value);
+// biome-ignore lint/correctness/noUnusedVariables: used by Vue template
 const hasLockedCase = computed(
-	() => state.value?.stage === "case_truth_confirmed",
+	() =>
+		state.value?.stage === "case_truth_confirmed" ||
+		state.value?.stage === "case_structure" ||
+		state.value?.stage === "case_structure_confirmed",
+);
+const hasLockedStructure = computed(
+	() => state.value?.stage === "case_structure_confirmed",
+);
+// biome-ignore lint/correctness/noUnusedVariables: used by Vue template
+const hasGeneratedStructure = computed(
+	() =>
+		(state.value?.timeline.length ?? 0) > 0 ||
+		(state.value?.characters.length ?? 0) > 0 ||
+		(state.value?.clues.length ?? 0) > 0,
 );
 // biome-ignore lint/correctness/noUnusedVariables: used by Vue template
 const caseOptions = computed(
 	() => state.value?.caseTruthOptions.slice(0, 3) ?? [],
 );
 const currentStep = computed<WizardStep>(() => {
-	if (hasLockedCase.value) {
+	if (hasLockedStructure.value) {
 		return "result";
+	}
+	if (
+		state.value?.stage === "case_truth_confirmed" ||
+		state.value?.stage === "case_structure"
+	) {
+		return "structure";
 	}
 	if (draftCase.value) {
 		return "finalize";
@@ -97,7 +121,8 @@ const steps: { key: WizardStep; title: string; summary: string }[] = [
 	{ key: "brief", title: "题材输入", summary: "锁定关键词和限制" },
 	{ key: "generate", title: "真相生成", summary: "比较 3 个方向" },
 	{ key: "finalize", title: "方案定稿", summary: "改写后确认" },
-	{ key: "result", title: "锁定结果", summary: "只读查看" },
+	{ key: "structure", title: "结构设定", summary: "时间线、人物、线索" },
+	{ key: "result", title: "结构锁定", summary: "衔接章节大纲" },
 ];
 
 // biome-ignore lint/correctness/noUnusedVariables: used by Vue template
@@ -153,7 +178,7 @@ const restoreExistingNovel = async (id: string) => {
 	setState(next);
 	restoreBrief(next);
 	const draft = loadEditorDraft(id);
-	if (next.stage === "case_truth_confirmed") {
+	if (next.stage === "case_structure_confirmed") {
 		clearEditorDraft(id);
 		return;
 	}
@@ -162,6 +187,9 @@ const restoreExistingNovel = async (id: string) => {
 		caseDecision.value = draft.caseDecision;
 		selectedOptionId.value = draft.selectedOptionId;
 		draftCase.value = draft.draftCase;
+		structureFeedback.value = draft.structureFeedback ?? "";
+		structureDecision.value =
+			draft.structureDecision ?? structureDecision.value;
 	}
 };
 
@@ -207,9 +235,16 @@ watch(
 );
 
 watch(
-	[caseFeedback, caseDecision, selectedOptionId, draftCase],
+	[
+		caseFeedback,
+		caseDecision,
+		selectedOptionId,
+		draftCase,
+		structureFeedback,
+		structureDecision,
+	],
 	() => {
-		if (!novelId.value || hasLockedCase.value) {
+		if (!novelId.value || hasLockedStructure.value) {
 			return;
 		}
 		saveEditorDraft(novelId.value, {
@@ -217,6 +252,8 @@ watch(
 			caseDecision: caseDecision.value,
 			selectedOptionId: selectedOptionId.value,
 			draftCase: draftCase.value,
+			structureFeedback: structureFeedback.value,
+			structureDecision: structureDecision.value,
 		});
 	},
 	{ deep: true },
@@ -282,12 +319,34 @@ const confirmCase = () =>
 	});
 
 // biome-ignore lint/correctness/noUnusedVariables: used by Vue template
+const generateStructure = () =>
+	run(async () => {
+		const result = await generateCaseStructure(novelId.value, {
+			feedback: structureFeedback.value,
+		});
+		setState(result.state);
+	});
+
+// biome-ignore lint/correctness/noUnusedVariables: used by Vue template
+const confirmStructure = () =>
+	run(async () => {
+		const result = await confirmCaseStructure(
+			novelId.value,
+			structureDecision.value,
+		);
+		clearEditorDraft(novelId.value);
+		setState(result.state);
+	});
+
+// biome-ignore lint/correctness/noUnusedVariables: used by Vue template
 const confirmationStageName = (stage: string) =>
 	stage === "brief_input"
 		? "题材"
 		: stage === "case_truth"
 			? "案件真相"
-			: stage;
+			: stage === "case_structure"
+				? "结构设定"
+				: stage;
 </script>
 
 <template>
@@ -427,7 +486,7 @@ const confirmationStageName = (stage: string) =>
 						<p class="eyebrow">Step 3</p>
 						<h2>改写后锁定案件真相</h2>
 						<p>
-							这里是案件的核心事实。确认后会进入只读结果页。
+							这里是案件的核心事实。确认后进入时间线、人物和线索设定。
 						</p>
 					</div>
 
@@ -501,12 +560,12 @@ const confirmationStageName = (stage: string) =>
 					</a-button>
 				</div>
 
-				<div v-else class="task-stack">
+				<div v-else-if="currentStep === 'structure'" class="task-stack">
 					<div class="section-head">
 						<p class="eyebrow">Step 4</p>
 						<h2>案件真相已锁定</h2>
 						<p>
-							当前版本只到案件核心定稿。结构、章节和正文等后续阶段暂不开放入口。
+							基于已确认真相生成支撑设定。确认后进入章节大纲。
 						</p>
 					</div>
 					<a-descriptions v-if="state" :column="1" bordered>
@@ -524,6 +583,131 @@ const confirmationStageName = (stage: string) =>
 						</a-descriptions-item>
 						<a-descriptions-item label="推理卖点">
 							{{ state.case.reasoningHook }}
+						</a-descriptions-item>
+					</a-descriptions>
+
+					<label>
+						<span>结构生成偏好</span>
+						<a-textarea
+							v-model="structureFeedback"
+							:auto-size="{ minRows: 3, maxRows: 5 }"
+							placeholder="例如：线索更公平、红鲱鱼更克制、时间线更紧凑"
+						/>
+					</label>
+					<a-button type="primary" :loading="loading" @click="generateStructure">
+						{{ hasGeneratedStructure ? "重新生成结构设定" : "生成结构设定" }}
+					</a-button>
+
+					<template v-if="state && hasGeneratedStructure">
+						<a-divider />
+						<div class="section-head">
+							<h2>真实时间线</h2>
+						</div>
+						<div class="structure-list">
+							<article
+								v-for="item in state.timeline"
+								:key="`${item.time}-${item.location}-${item.actualEvent}`"
+								class="structure-item"
+							>
+								<strong>{{ item.time }} · {{ item.location }}</strong>
+								<p>真实：{{ item.actualEvent }}</p>
+								<p>声称：{{ item.claimedEvent }}</p>
+								<p>人物：{{ item.people.join(" / ") }}</p>
+								<p>
+									读者知道：{{ item.readerKnowsAt }}；侦探知道：{{
+										item.detectiveKnowsAt
+									}}
+								</p>
+							</article>
+						</div>
+
+						<div class="section-head">
+							<h2>人物与动机</h2>
+						</div>
+						<div class="structure-list">
+							<article
+								v-for="item in state.characters"
+								:key="`${item.name}-${item.truthStatus}`"
+								class="structure-item"
+							>
+								<strong>{{ item.name }} · {{ item.role }}</strong>
+								<p>关系：{{ item.relationship }}</p>
+								<p>动机：{{ item.motive }}</p>
+								<p>秘密：{{ item.secret }}</p>
+								<p>谎言：{{ item.lie }}</p>
+								<p>真相状态：{{ item.truthStatus }}</p>
+							</article>
+						</div>
+
+						<div class="section-head">
+							<h2>关键线索</h2>
+						</div>
+						<div class="structure-list">
+							<article
+								v-for="item in state.clues"
+								:key="item.id"
+								class="structure-item"
+							>
+								<strong>{{ item.id }} · {{ item.description }}</strong>
+								<p>首次出现：{{ item.firstSeen }}；回收：{{ item.payoff }}</p>
+								<p>表层含义：{{ item.surfaceMeaning }}</p>
+								<p>真实含义：{{ item.realMeaning }}</p>
+								<p>公平线索：{{ item.fair ? "是" : "否" }}</p>
+							</article>
+						</div>
+
+						<a-alert
+							v-for="(report, index) in state.qualityReports"
+							:key="index"
+							:type="report.pass ? 'success' : 'warning'"
+							show-icon
+							:title="report.pass ? '结构检查通过' : '结构检查需要关注'"
+						>
+							<template #content>
+								<ul class="question-list">
+									<li v-for="item in report.questions" :key="item">
+										问题：{{ item }}
+									</li>
+									<li v-for="item in report.problems" :key="item">
+										风险：{{ item }}
+									</li>
+								</ul>
+							</template>
+						</a-alert>
+
+						<label>
+							<span>确认说明</span>
+							<a-textarea
+								v-model="structureDecision"
+								:auto-size="{ minRows: 3, maxRows: 5 }"
+							/>
+						</label>
+						<a-button type="primary" :loading="loading" @click="confirmStructure">
+							确认结构设定并继续
+						</a-button>
+					</template>
+				</div>
+
+				<div v-else class="task-stack">
+					<div class="section-head">
+						<p class="eyebrow">Step 5</p>
+						<h2>结构设定已锁定</h2>
+						<p>
+							时间线、人物和线索已确认。下一阶段将基于这些内容生成章节大纲。
+						</p>
+					</div>
+					<a-descriptions v-if="state" :column="1" bordered>
+						<a-descriptions-item label="时间线">
+							{{ state.timeline.length }} 条
+						</a-descriptions-item>
+						<a-descriptions-item label="人物">
+							{{ state.characters.length }} 个
+						</a-descriptions-item>
+						<a-descriptions-item label="线索">
+							{{ state.clues.length }} 条
+						</a-descriptions-item>
+						<a-descriptions-item label="下一阶段">
+							章节大纲
 						</a-descriptions-item>
 					</a-descriptions>
 				</div>
@@ -547,6 +731,22 @@ const confirmationStageName = (stage: string) =>
 						<p>反转：{{ state.case.finalTwist }}</p>
 					</template>
 					<p v-else>选择一个生成方案并确认后显示。</p>
+				</div>
+
+				<div class="summary-block">
+					<strong>{{
+						hasLockedStructure
+							? "结构已锁定"
+							: hasGeneratedStructure
+								? "结构待确认"
+								: "结构待生成"
+					}}</strong>
+					<template v-if="state && hasGeneratedStructure">
+						<p>时间线：{{ state.timeline.length }} 条</p>
+						<p>人物：{{ state.characters.length }} 个</p>
+						<p>线索：{{ state.clues.length }} 条</p>
+					</template>
+					<p v-else>案件真相确认后生成。</p>
 				</div>
 
 				<div v-if="state?.confirmations.length" class="summary-block">

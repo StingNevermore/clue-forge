@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { generateCaseTruthOptions, generateChapterDraft } from "./llm";
+import {
+	generateCaseStructure,
+	generateCaseTruthOptions,
+	generateChapterDraft,
+} from "./llm";
 import type { NovelState } from "./types";
 
 type FetchCall = [RequestInfo | URL, RequestInit?];
@@ -195,5 +199,172 @@ describe("generateCaseTruthOptions", () => {
 				"deepseek",
 			),
 		).rejects.toThrow("LLM returned invalid case truth JSON");
+	});
+});
+
+describe("generateCaseStructure", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("parses complete timeline, character, clue, and quality report JSON", async () => {
+		const fetch = vi.fn<(...args: FetchCall) => Promise<Response>>(async () =>
+			Response.json({
+				id: "chatcmpl_test",
+				object: "chat.completion",
+				created: 0,
+				model: "deepseek-model",
+				choices: [
+					{
+						index: 0,
+						message: {
+							role: "assistant",
+							content: JSON.stringify({
+								timeline: [
+									{
+										time: "21:35",
+										location: "地下停车场",
+										actualEvent: "真凶转移尸体",
+										claimedEvent: "真凶声称在会议室",
+										people: ["林澈", "顾铭"],
+										readerKnowsAt: "第3章",
+										detectiveKnowsAt: "第18章",
+									},
+								],
+								characters: [
+									{
+										name: "林澈",
+										role: "刑警 / 真凶",
+										relationship: "被害人的旧案搭档",
+										motive: "掩盖十五年前伪证",
+										secret: "伪造旧案证词",
+										lie: "声称案发时在会议室",
+										truthStatus: "culprit",
+									},
+								],
+								clues: [
+									{
+										id: "c001",
+										description: "未发送短信",
+										firstSeen: "第3章",
+										surfaceMeaning: "看似指向前妻",
+										realMeaning: "实际指向备用手机",
+										payoff: "第26章",
+										fair: true,
+									},
+								],
+								qualityReports: [
+									{
+										pass: true,
+										questions: [],
+										problems: [],
+									},
+								],
+							}),
+						},
+					},
+				],
+			}),
+		);
+		vi.stubGlobal("fetch", fetch);
+
+		const structure = await generateCaseStructure(
+			{
+				LLM_PROVIDERS_JSON: JSON.stringify({
+					deepseek: {
+						baseURL: "https://deepseek.example.test/v1",
+						apiKey: "secret",
+						model: "deepseek-model",
+					},
+				}),
+			},
+			state,
+			"误导更克制",
+			"deepseek",
+		);
+
+		expect(structure.timeline).toHaveLength(1);
+		expect(structure.characters[0]?.truthStatus).toBe("culprit");
+		expect(structure.clues[0]?.fair).toBe(true);
+		expect(structure.qualityReports).toStrictEqual([
+			{ pass: true, questions: [], problems: [] },
+		]);
+	});
+
+	it("rejects malformed case structure JSON", async () => {
+		const fetch = vi.fn<(...args: FetchCall) => Promise<Response>>(async () =>
+			Response.json({
+				id: "chatcmpl_test",
+				object: "chat.completion",
+				created: 0,
+				model: "deepseek-model",
+				choices: [
+					{
+						index: 0,
+						message: { role: "assistant", content: "{not-json" },
+					},
+				],
+			}),
+		);
+		vi.stubGlobal("fetch", fetch);
+
+		await expect(
+			generateCaseStructure(
+				{
+					LLM_PROVIDERS_JSON: JSON.stringify({
+						deepseek: {
+							baseURL: "https://deepseek.example.test/v1",
+							apiKey: "secret",
+							model: "deepseek-model",
+						},
+					}),
+				},
+				state,
+				"",
+				"deepseek",
+			),
+		).rejects.toThrow("LLM returned invalid case structure JSON");
+	});
+
+	it("rejects empty case structure arrays", async () => {
+		const fetch = vi.fn<(...args: FetchCall) => Promise<Response>>(async () =>
+			Response.json({
+				id: "chatcmpl_test",
+				object: "chat.completion",
+				created: 0,
+				model: "deepseek-model",
+				choices: [
+					{
+						index: 0,
+						message: {
+							role: "assistant",
+							content: JSON.stringify({
+								timeline: [],
+								characters: [],
+								clues: [],
+							}),
+						},
+					},
+				],
+			}),
+		);
+		vi.stubGlobal("fetch", fetch);
+
+		await expect(
+			generateCaseStructure(
+				{
+					LLM_PROVIDERS_JSON: JSON.stringify({
+						deepseek: {
+							baseURL: "https://deepseek.example.test/v1",
+							apiKey: "secret",
+							model: "deepseek-model",
+						},
+					}),
+				},
+				state,
+				"",
+				"deepseek",
+			),
+		).rejects.toThrow("LLM returned invalid case structure JSON");
 	});
 });

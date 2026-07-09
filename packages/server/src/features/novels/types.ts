@@ -46,6 +46,49 @@ export type Confirmation = {
 	createdAt: string;
 };
 
+export type TimelineEvent = {
+	time: string;
+	location: string;
+	actualEvent: string;
+	claimedEvent: string;
+	people: string[];
+	readerKnowsAt: string;
+	detectiveKnowsAt: string;
+};
+
+export type CharacterProfile = {
+	name: string;
+	role: string;
+	relationship: string;
+	motive: string;
+	secret: string;
+	lie: string;
+	truthStatus: string;
+};
+
+export type Clue = {
+	id: string;
+	description: string;
+	firstSeen: string;
+	surfaceMeaning: string;
+	realMeaning: string;
+	payoff: string;
+	fair: boolean;
+};
+
+export type QualityReport = {
+	pass: boolean;
+	questions: string[];
+	problems: string[];
+};
+
+export type CaseStructure = {
+	timeline: TimelineEvent[];
+	characters: CharacterProfile[];
+	clues: Clue[];
+	qualityReports?: QualityReport[];
+};
+
 export type ChapterPlan = {
 	chapter: number;
 	purpose: string;
@@ -59,12 +102,12 @@ export type NovelState = {
 	brief: Brief;
 	case: CaseTruth;
 	caseTruthOptions: CaseTruthOption[];
-	characters: unknown[];
-	timeline: unknown[];
-	clues: unknown[];
+	characters: CharacterProfile[];
+	timeline: TimelineEvent[];
+	clues: Clue[];
 	chapters: ChapterPlan[];
 	confirmations: Confirmation[];
-	qualityReports: unknown[];
+	qualityReports: QualityReport[];
 };
 
 export type CreateNovelRequest = {

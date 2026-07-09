@@ -168,6 +168,57 @@ describe("novel routes", () => {
 		});
 	});
 
+	it("generates case structure for the current stage", async () => {
+		mocks.generateStep.mockResolvedValueOnce({
+			version: "v3",
+			state: {
+				stage: "case_structure",
+				timeline: [],
+				characters: [],
+				clues: [],
+			},
+		});
+
+		const env = {};
+		const response = await novelRoutes.request(
+			"/novels/novel-id/generate",
+			{
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					stage: "case_structure",
+					feedback: "线索更公平",
+					provider: "deepseek",
+				}),
+			},
+			env,
+		);
+
+		expect(response.status).toBe(200);
+		expect(mocks.generateStep).toHaveBeenCalledWith(env, "novel-id", {
+			stage: "case_structure",
+			feedback: "线索更公平",
+			provider: "deepseek",
+		});
+	});
+
+	it("rejects unsupported generation stages", async () => {
+		const response = await novelRoutes.request(
+			"/novels/novel-id/generate",
+			{
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ stage: "chapter_plan" }),
+			},
+			{},
+		);
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toStrictEqual({
+			error: "stage must be case_truth or case_structure",
+		});
+	});
+
 	it("returns 409 when confirmation stage does not match current state", async () => {
 		mocks.confirmStep.mockResolvedValueOnce({
 			error: "stage_conflict",

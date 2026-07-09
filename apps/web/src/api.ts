@@ -31,6 +31,42 @@ export type Confirmation = {
 	createdAt: string;
 };
 
+export type TimelineEvent = {
+	time: string;
+	location: string;
+	actualEvent: string;
+	claimedEvent: string;
+	people: string[];
+	readerKnowsAt: string;
+	detectiveKnowsAt: string;
+};
+
+export type CharacterProfile = {
+	name: string;
+	role: string;
+	relationship: string;
+	motive: string;
+	secret: string;
+	lie: string;
+	truthStatus: string;
+};
+
+export type Clue = {
+	id: string;
+	description: string;
+	firstSeen: string;
+	surfaceMeaning: string;
+	realMeaning: string;
+	payoff: string;
+	fair: boolean;
+};
+
+export type QualityReport = {
+	pass: boolean;
+	questions: string[];
+	problems: string[];
+};
+
 export type CaseTruth = {
 	victim: string;
 	surfaceMystery: string;
@@ -54,7 +90,11 @@ export type NovelState = {
 	brief: Brief;
 	case: CaseTruth;
 	caseTruthOptions: CaseTruthOption[];
+	timeline: TimelineEvent[];
+	characters: CharacterProfile[];
+	clues: Clue[];
 	confirmations: Confirmation[];
+	qualityReports: QualityReport[];
 };
 
 export class NeedsClarificationError extends Error {
@@ -140,6 +180,18 @@ export const generateCaseTruth = (
 		},
 	);
 
+export const generateCaseStructure = (
+	id: string,
+	input: { feedback?: string; provider?: string },
+) =>
+	requestJson<{ version: string; state: NovelState }>(
+		`/api/novels/${id}/generate`,
+		{
+			method: "POST",
+			body: JSON.stringify({ stage: "case_structure", ...input }),
+		},
+	);
+
 export const confirmCaseTruth = (
 	id: string,
 	decision: string,
@@ -159,6 +211,19 @@ export const confirmCaseTruth = (
 					"case.finalTwist",
 				],
 				caseTruth,
+			}),
+		},
+	);
+
+export const confirmCaseStructure = (id: string, decision: string) =>
+	requestJson<{ version: string; state: NovelState }>(
+		`/api/novels/${id}/confirm`,
+		{
+			method: "POST",
+			body: JSON.stringify({
+				stage: "case_structure",
+				decision,
+				lockedFields: ["timeline", "characters", "clues"],
 			}),
 		},
 	);
