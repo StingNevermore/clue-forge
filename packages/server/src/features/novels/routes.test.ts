@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
 	confirmStep: vi.fn(),
 	createNovel: vi.fn(),
 	generateStep: vi.fn(),
+	listNovels: vi.fn(),
 	loadNovelState: vi.fn(),
 }));
 
@@ -16,6 +17,7 @@ vi.mock("./service", () => ({
 	createNovel: mocks.createNovel,
 	draftChapter: mocks.draftChapter,
 	generateStep: mocks.generateStep,
+	listNovels: mocks.listNovels,
 }));
 
 vi.mock("./storage", () => ({
@@ -25,6 +27,31 @@ vi.mock("./storage", () => ({
 import { novelRoutes } from "./routes";
 
 describe("novel routes", () => {
+	it("lists novels by updated time", async () => {
+		mocks.listNovels.mockResolvedValueOnce([
+			{
+				id: "novel-id",
+				title: "仪式杀人",
+				currentVersion: "v2",
+				updatedAt: "2026-07-09T00:00:00.000Z",
+			},
+		]);
+
+		const env = {};
+		const response = await novelRoutes.request("/novels", {}, env);
+
+		expect(response.status).toBe(200);
+		expect(mocks.listNovels).toHaveBeenCalledWith(env);
+		expect(await response.json()).toStrictEqual([
+			{
+				id: "novel-id",
+				title: "仪式杀人",
+				currentVersion: "v2",
+				updatedAt: "2026-07-09T00:00:00.000Z",
+			},
+		]);
+	});
+
 	it("creates novels from the brief request shape", async () => {
 		mocks.createNovel.mockResolvedValueOnce({
 			id: "novel-id",

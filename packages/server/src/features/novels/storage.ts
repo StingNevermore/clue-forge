@@ -7,6 +7,27 @@ const stateKey = (novelId: string, version: string) =>
 const chapterKey = (novelId: string, chapterNo: number, version: string) =>
 	`novels/${novelId}/chapters/${chapterNo}/${version}.md`;
 
+type NovelRecordRow = {
+	id: string;
+	title: string;
+	current_version: string | null;
+	updated_at: string;
+};
+
+export const listNovelRecords = async (
+	env: CloudflareBindings,
+): Promise<NovelSummary[]> => {
+	const { results } = await env.NOVEL_DB.prepare(
+		"SELECT id, title, current_version, updated_at FROM novels ORDER BY updated_at DESC",
+	).all<NovelRecordRow>();
+	return results.map((row) => ({
+		id: row.id,
+		title: row.title,
+		currentVersion: row.current_version,
+		updatedAt: row.updated_at,
+	}));
+};
+
 export const createNovelRecord = async (
 	env: CloudflareBindings,
 	title: string,

@@ -105,6 +105,8 @@ export const createNovel = (title: string, brief: Brief) =>
 		body: JSON.stringify({ title, brief }),
 	});
 
+export const listNovels = () => requestJson<NovelSummary[]>("/api/novels");
+
 export const loadNovel = (id: string) =>
 	requestJson<NovelState>(`/api/novels/${id}`);
 

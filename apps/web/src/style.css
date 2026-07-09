@@ -249,6 +249,62 @@ label {
 	gap: 6px;
 }
 
+.list-panel {
+	max-width: 1280px;
+	margin: 0 auto;
+}
+
+.list-spin {
+	display: block;
+	width: 100%;
+}
+
+.novel-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.novel-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	width: 100%;
+	min-height: 76px;
+	padding: 14px 16px;
+	border: 1px solid var(--color-border-2);
+	border-radius: 8px;
+	background: #fff;
+	color: var(--color-text-1);
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.novel-row:hover {
+	border-color: var(--color-primary-6);
+	box-shadow: 0 8px 24px rgb(22 93 255 / 10%);
+}
+
+.novel-row span {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+}
+
+.novel-row strong,
+.novel-row small {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.novel-row small {
+	color: var(--color-text-2);
+}
+
 @media (max-width: 1040px) {
 	.content,
 	.steps {
@@ -285,5 +341,10 @@ label {
 
 	.task-panel {
 		min-height: 0;
+	}
+
+	.novel-row {
+		align-items: stretch;
+		flex-direction: column;
 	}
 }

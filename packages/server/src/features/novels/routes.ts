@@ -4,6 +4,7 @@ import {
 	createNovel,
 	draftChapter,
 	generateStep,
+	listNovels,
 } from "./service";
 import { loadNovelState } from "./storage";
 import type {
@@ -20,6 +21,11 @@ type DraftChapterRequest = {
 
 const isStringArray = (value: unknown): value is string[] =>
 	Array.isArray(value) && value.every((item) => typeof item === "string");
+
+novelRoutes.get("/novels", async (context) => {
+	const novels = await listNovels(context.env);
+	return context.json(novels);
+});
 
 novelRoutes.post("/novels", async (context) => {
 	const input = await context.req.json<CreateNovelRequest>();

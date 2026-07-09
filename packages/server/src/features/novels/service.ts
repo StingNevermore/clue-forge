@@ -2,6 +2,7 @@ import type { LlmEnv } from "../../llm";
 import { generateCaseTruthOptions, generateChapterDraft } from "./llm";
 import {
 	createNovelRecord,
+	listNovelRecords,
 	loadNovelState,
 	saveChapterDraft,
 	saveNovelVersion,
@@ -178,6 +179,9 @@ export const createNovel = (
 	input: CreateNovelRequest,
 ): Promise<NovelSummary> =>
 	createNovelRecord(env, input.title, makeInitialState(input));
+
+export const listNovels = (env: CloudflareBindings): Promise<NovelSummary[]> =>
+	listNovelRecords(env);
 
 export const confirmStep = async (
 	env: CloudflareBindings,
