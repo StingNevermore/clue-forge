@@ -3,7 +3,11 @@ import type {
 	CaseStructure,
 	CaseTruthOption,
 	ChapterDraft,
+	CharacterProfile,
+	Clue,
 	NovelState,
+	QualityReport,
+	TimelineEvent,
 } from "./types";
 
 const caseTruthFields = [
@@ -64,6 +68,18 @@ const stringArrayField = (record: Record<string, unknown>, field: string) => {
 		throw new Error("LLM returned invalid case structure JSON");
 	}
 	return value.map((item) => String(item).trim());
+};
+
+const parseJsonRecord = (text: string) => {
+	try {
+		const parsed = JSON.parse(cleanJson(text));
+		if (typeof parsed === "object" && parsed !== null) {
+			return parsed as Record<string, unknown>;
+		}
+	} catch {
+		// handled below
+	}
+	throw new Error("LLM returned invalid case structure JSON");
 };
 
 const parseCaseTruthOptions = (text: string): CaseTruthOption[] => {
@@ -142,125 +158,128 @@ export const generateCaseTruthOptions = async (
 	return parseCaseTruthOptions(text);
 };
 
-const parseCaseStructure = (text: string): CaseStructure => {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(cleanJson(text));
-	} catch {
+const parseTimeline = (text: string): TimelineEvent[] => {
+	const record = parseJsonRecord(text);
+	if (!Array.isArray(record.timeline) || record.timeline.length === 0) {
 		throw new Error("LLM returned invalid case structure JSON");
 	}
 
-	if (typeof parsed !== "object" || parsed === null) {
-		throw new Error("LLM returned invalid case structure JSON");
-	}
-	const record = parsed as Record<string, unknown>;
-	if (
-		!Array.isArray(record.timeline) ||
-		!Array.isArray(record.characters) ||
-		!Array.isArray(record.clues) ||
-		record.timeline.length === 0 ||
-		record.characters.length === 0 ||
-		record.clues.length === 0
-	) {
-		throw new Error("LLM returned invalid case structure JSON");
-	}
-
-	return {
-		timeline: record.timeline.map((item) => {
-			if (typeof item !== "object" || item === null) {
+	return record.timeline.map((item) => {
+		if (typeof item !== "object" || item === null) {
+			throw new Error("LLM returned invalid case structure JSON");
+		}
+		const event = item as Record<string, unknown>;
+		for (const field of timelineFields) {
+			if (!requiredString(event[field])) {
 				throw new Error("LLM returned invalid case structure JSON");
 			}
-			const event = item as Record<string, unknown>;
-			for (const field of timelineFields) {
-				if (!requiredString(event[field])) {
-					throw new Error("LLM returned invalid case structure JSON");
-				}
-			}
-			return {
-				time: stringField(event, "time"),
-				location: stringField(event, "location"),
-				actualEvent: stringField(event, "actualEvent"),
-				claimedEvent: stringField(event, "claimedEvent"),
-				people: stringArrayField(event, "people"),
-				readerKnowsAt: stringField(event, "readerKnowsAt"),
-				detectiveKnowsAt: stringField(event, "detectiveKnowsAt"),
-			};
-		}),
-		characters: record.characters.map((item) => {
-			if (typeof item !== "object" || item === null) {
-				throw new Error("LLM returned invalid case structure JSON");
-			}
-			const character = item as Record<string, unknown>;
-			for (const field of characterFields) {
-				if (!requiredString(character[field])) {
-					throw new Error("LLM returned invalid case structure JSON");
-				}
-			}
-			return {
-				name: stringField(character, "name"),
-				role: stringField(character, "role"),
-				relationship: stringField(character, "relationship"),
-				motive: stringField(character, "motive"),
-				secret: stringField(character, "secret"),
-				lie: stringField(character, "lie"),
-				truthStatus: stringField(character, "truthStatus"),
-			};
-		}),
-		clues: record.clues.map((item) => {
-			if (typeof item !== "object" || item === null) {
-				throw new Error("LLM returned invalid case structure JSON");
-			}
-			const clue = item as Record<string, unknown>;
-			for (const field of clueFields) {
-				if (!requiredString(clue[field])) {
-					throw new Error("LLM returned invalid case structure JSON");
-				}
-			}
-			if (typeof clue.fair !== "boolean") {
-				throw new Error("LLM returned invalid case structure JSON");
-			}
-			return {
-				id: stringField(clue, "id"),
-				description: stringField(clue, "description"),
-				firstSeen: stringField(clue, "firstSeen"),
-				surfaceMeaning: stringField(clue, "surfaceMeaning"),
-				realMeaning: stringField(clue, "realMeaning"),
-				payoff: stringField(clue, "payoff"),
-				fair: clue.fair,
-			};
-		}),
-		qualityReports: Array.isArray(record.qualityReports)
-			? record.qualityReports.map((item) => {
-					if (typeof item !== "object" || item === null) {
-						throw new Error("LLM returned invalid case structure JSON");
-					}
-					const report = item as Record<string, unknown>;
-					if (typeof report.pass !== "boolean") {
-						throw new Error("LLM returned invalid case structure JSON");
-					}
-					return {
-						pass: report.pass,
-						questions: stringArrayField(report, "questions"),
-						problems: stringArrayField(report, "problems"),
-					};
-				})
-			: [],
-	};
+		}
+		return {
+			time: stringField(event, "time"),
+			location: stringField(event, "location"),
+			actualEvent: stringField(event, "actualEvent"),
+			claimedEvent: stringField(event, "claimedEvent"),
+			people: stringArrayField(event, "people"),
+			readerKnowsAt: stringField(event, "readerKnowsAt"),
+			detectiveKnowsAt: stringField(event, "detectiveKnowsAt"),
+		};
+	});
 };
 
-export const generateCaseStructure = async (
+const parseCharacters = (text: string): CharacterProfile[] => {
+	const record = parseJsonRecord(text);
+	if (!Array.isArray(record.characters) || record.characters.length === 0) {
+		throw new Error("LLM returned invalid case structure JSON");
+	}
+
+	return record.characters.map((item) => {
+		if (typeof item !== "object" || item === null) {
+			throw new Error("LLM returned invalid case structure JSON");
+		}
+		const character = item as Record<string, unknown>;
+		for (const field of characterFields) {
+			if (!requiredString(character[field])) {
+				throw new Error("LLM returned invalid case structure JSON");
+			}
+		}
+		return {
+			name: stringField(character, "name"),
+			role: stringField(character, "role"),
+			relationship: stringField(character, "relationship"),
+			motive: stringField(character, "motive"),
+			secret: stringField(character, "secret"),
+			lie: stringField(character, "lie"),
+			truthStatus: stringField(character, "truthStatus"),
+		};
+	});
+};
+
+const parseClues = (text: string): Clue[] => {
+	const record = parseJsonRecord(text);
+	if (!Array.isArray(record.clues) || record.clues.length === 0) {
+		throw new Error("LLM returned invalid case structure JSON");
+	}
+
+	return record.clues.map((item) => {
+		if (typeof item !== "object" || item === null) {
+			throw new Error("LLM returned invalid case structure JSON");
+		}
+		const clue = item as Record<string, unknown>;
+		for (const field of clueFields) {
+			if (!requiredString(clue[field])) {
+				throw new Error("LLM returned invalid case structure JSON");
+			}
+		}
+		if (typeof clue.fair !== "boolean") {
+			throw new Error("LLM returned invalid case structure JSON");
+		}
+		return {
+			id: stringField(clue, "id"),
+			description: stringField(clue, "description"),
+			firstSeen: stringField(clue, "firstSeen"),
+			surfaceMeaning: stringField(clue, "surfaceMeaning"),
+			realMeaning: stringField(clue, "realMeaning"),
+			payoff: stringField(clue, "payoff"),
+			fair: clue.fair,
+		};
+	});
+};
+
+const parseQualityReports = (text: string): QualityReport[] => {
+	const record = parseJsonRecord(text);
+	if (!Array.isArray(record.qualityReports)) {
+		throw new Error("LLM returned invalid case structure JSON");
+	}
+
+	return record.qualityReports.map((item) => {
+		if (typeof item !== "object" || item === null) {
+			throw new Error("LLM returned invalid case structure JSON");
+		}
+		const report = item as Record<string, unknown>;
+		if (typeof report.pass !== "boolean") {
+			throw new Error("LLM returned invalid case structure JSON");
+		}
+		return {
+			pass: report.pass,
+			questions: stringArrayField(report, "questions"),
+			problems: stringArrayField(report, "problems"),
+		};
+	});
+};
+
+export const generateTimeline = async (
 	env: LlmEnv,
 	state: NovelState,
 	feedback?: string,
 	provider?: string,
-): Promise<CaseStructure> => {
+): Promise<TimelineEvent[]> => {
 	const text = await generateLlmText(env, {
 		provider,
 		messages: [
 			{
 				role: "system",
 				content:
-					"你是推理小说结构设定助手。只返回 JSON，不要 Markdown。JSON 必须包含 timeline, characters, clues, qualityReports。timeline 每项包含 time, location, actualEvent, claimedEvent, people, readerKnowsAt, detectiveKnowsAt。characters 每项包含 name, role, relationship, motive, secret, lie, truthStatus。clues 每项包含 id, description, firstSeen, surfaceMeaning, realMeaning, payoff, fair。所有时间线、人物、线索都必须支撑已确认案件真相，不能修改真凶、动机、作案方式和最终反转。",
+					"你是推理小说时间线设计助手。只返回 JSON，不要 Markdown。JSON 必须只包含 timeline。timeline 每项包含 time, location, actualEvent, claimedEvent, people, readerKnowsAt, detectiveKnowsAt。时间线必须支撑已确认案件真相，不能修改真凶、动机、作案方式和最终反转。",
 			},
 			{
 				role: "user",
@@ -273,7 +292,133 @@ export const generateCaseStructure = async (
 		],
 	});
 
-	return parseCaseStructure(text);
+	return parseTimeline(text);
+};
+
+export const generateCharacters = async (
+	env: LlmEnv,
+	state: NovelState,
+	timeline: TimelineEvent[],
+	feedback?: string,
+	provider?: string,
+): Promise<CharacterProfile[]> => {
+	const text = await generateLlmText(env, {
+		provider,
+		messages: [
+			{
+				role: "system",
+				content:
+					"你是推理小说人物设定助手。只返回 JSON，不要 Markdown。JSON 必须只包含 characters。characters 每项包含 name, role, relationship, motive, secret, lie, truthStatus。人物设定必须支撑已确认案件真相和时间线。",
+			},
+			{
+				role: "user",
+				content: JSON.stringify({
+					brief: state.brief,
+					caseTruth: state.case,
+					timeline,
+					feedback,
+				}),
+			},
+		],
+	});
+
+	return parseCharacters(text);
+};
+
+export const generateClues = async (
+	env: LlmEnv,
+	state: NovelState,
+	timeline: TimelineEvent[],
+	characters: CharacterProfile[],
+	feedback?: string,
+	provider?: string,
+): Promise<Clue[]> => {
+	const text = await generateLlmText(env, {
+		provider,
+		messages: [
+			{
+				role: "system",
+				content:
+					"你是推理小说线索设定助手。只返回 JSON，不要 Markdown。JSON 必须只包含 clues。clues 每项包含 id, description, firstSeen, surfaceMeaning, realMeaning, payoff, fair。线索必须支撑已确认案件真相、时间线和人物设定。",
+			},
+			{
+				role: "user",
+				content: JSON.stringify({
+					brief: state.brief,
+					caseTruth: state.case,
+					timeline,
+					characters,
+					feedback,
+				}),
+			},
+		],
+	});
+
+	return parseClues(text);
+};
+
+export const generateQualityReports = async (
+	env: LlmEnv,
+	state: NovelState,
+	structure: Pick<CaseStructure, "timeline" | "characters" | "clues">,
+	feedback?: string,
+	provider?: string,
+): Promise<QualityReport[]> => {
+	const text = await generateLlmText(env, {
+		provider,
+		messages: [
+			{
+				role: "system",
+				content:
+					"你是推理小说结构检查助手。只返回 JSON，不要 Markdown。JSON 必须只包含 qualityReports。qualityReports 每项包含 pass, questions, problems。只检查时间线、人物和线索是否支撑已确认案件真相。",
+			},
+			{
+				role: "user",
+				content: JSON.stringify({
+					brief: state.brief,
+					caseTruth: state.case,
+					structure,
+					feedback,
+				}),
+			},
+		],
+	});
+
+	return parseQualityReports(text);
+};
+
+export const generateCaseStructure = async (
+	env: LlmEnv,
+	state: NovelState,
+	feedback?: string,
+	provider?: string,
+): Promise<CaseStructure> => {
+	const timeline = await generateTimeline(env, state, feedback, provider);
+	const characters = await generateCharacters(
+		env,
+		state,
+		timeline,
+		feedback,
+		provider,
+	);
+	const clues = await generateClues(
+		env,
+		state,
+		timeline,
+		characters,
+		feedback,
+		provider,
+	);
+	const structure = { timeline, characters, clues };
+	const qualityReports = await generateQualityReports(
+		env,
+		state,
+		structure,
+		feedback,
+		provider,
+	);
+
+	return { ...structure, qualityReports };
 };
 
 export const generateChapterDraft = async (

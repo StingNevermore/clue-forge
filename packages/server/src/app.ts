@@ -3,24 +3,66 @@ import { novelRoutes } from "./features/novels/routes";
 
 export const app = new Hono<{ Bindings: CloudflareBindings }>();
 
+const errorLogId = () => crypto.randomUUID();
+
+const errorMessageFromResponse = async (response: Response) => {
+	const contentType = response.headers.get("content-type") ?? "";
+	if (contentType.includes("application/json")) {
+		const body = await response
+			.clone()
+			.json<{ error?: unknown; message?: unknown }>()
+			.catch(() => undefined);
+		if (typeof body?.error === "string") {
+			return body.error;
+		}
+		if (typeof body?.message === "string") {
+			return body.message;
+		}
+	}
+	return response.statusText || `HTTP ${response.status}`;
+};
+
 app.use("*", async (context, next) => {
 	await next();
 	context.header("cache-control", "no-store");
+	if (context.res.status < 400 || context.res.headers.has("x-error-log-id")) {
+		return;
+	}
+
+	const id = errorLogId();
+	const url = new URL(context.req.url);
+	const log = {
+		id,
+		message: "request returned error",
+		method: context.req.method,
+		path: url.pathname,
+		status: context.res.status,
+		error: await errorMessageFromResponse(context.res),
+	};
+	if (context.res.status >= 500) {
+		console.error(JSON.stringify(log));
+	} else {
+		console.warn(JSON.stringify(log));
+	}
+	context.header("x-error-log-id", id);
 });
 
 app.route("/", novelRoutes);
 
 app.notFound((context) => context.json({ error: "Not found" }, 404));
 
-app.onError((error, context) => {
+app.onError(async (error, context) => {
 	const url = new URL(context.req.url);
+	const id = errorLogId();
 	console.error(
 		JSON.stringify({
+			id,
 			message: "request failed",
 			error: error instanceof Error ? error.message : String(error),
 			method: context.req.method,
 			path: url.pathname,
 		}),
 	);
-	return context.json({ error: "Internal server error" }, 500);
+	context.header("x-error-log-id", id);
+	return context.json({ error: "Internal server error", errorLogId: id }, 500);
 });
