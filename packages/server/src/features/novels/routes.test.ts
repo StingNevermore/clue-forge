@@ -187,6 +187,7 @@ describe("novel routes", () => {
 				headers: { "content-type": "application/json" },
 				body: JSON.stringify({
 					stage: "case_structure",
+					part: "timeline",
 					feedback: "线索更公平",
 					provider: "deepseek",
 				}),
@@ -197,8 +198,27 @@ describe("novel routes", () => {
 		expect(response.status).toBe(200);
 		expect(mocks.generateStep).toHaveBeenCalledWith(env, "novel-id", {
 			stage: "case_structure",
+			part: "timeline",
 			feedback: "线索更公平",
 			provider: "deepseek",
+		});
+	});
+
+	it("rejects case structure generation without a part", async () => {
+		const response = await novelRoutes.request(
+			"/novels/novel-id/generate",
+			{
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ stage: "case_structure" }),
+			},
+			{},
+		);
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toStrictEqual({
+			error:
+				"part must be timeline, characters, clues, or quality_reports for case_structure",
 		});
 	});
 

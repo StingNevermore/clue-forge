@@ -8,6 +8,7 @@ import {
 } from "./service";
 import { loadNovelState } from "./storage";
 import type {
+	CaseStructurePart,
 	ConfirmStepRequest,
 	CreateNovelRequest,
 	GenerateStepRequest,
@@ -21,6 +22,12 @@ type DraftChapterRequest = {
 
 const isStringArray = (value: unknown): value is string[] =>
 	Array.isArray(value) && value.every((item) => typeof item === "string");
+
+const isCaseStructurePart = (value: unknown): value is CaseStructurePart =>
+	value === "timeline" ||
+	value === "characters" ||
+	value === "clues" ||
+	value === "quality_reports";
 
 novelRoutes.get("/novels", async (context) => {
 	const novels = await listNovels(context.env);
@@ -73,6 +80,15 @@ novelRoutes.post("/novels/:id/generate", async (context) => {
 	if (input.stage !== "case_truth" && input.stage !== "case_structure") {
 		return context.json(
 			{ error: "stage must be case_truth or case_structure" },
+			400,
+		);
+	}
+	if (input.stage === "case_structure" && !isCaseStructurePart(input.part)) {
+		return context.json(
+			{
+				error:
+					"part must be timeline, characters, clues, or quality_reports for case_structure",
+			},
 			400,
 		);
 	}

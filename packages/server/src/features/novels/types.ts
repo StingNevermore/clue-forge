@@ -89,6 +89,12 @@ export type CaseStructure = {
 	qualityReports?: QualityReport[];
 };
 
+export type CaseStructurePart =
+	| "timeline"
+	| "characters"
+	| "clues"
+	| "quality_reports";
+
 export type ChapterPlan = {
 	chapter: number;
 	purpose: string;
@@ -126,6 +132,7 @@ export type GenerateStepRequest = {
 	stage: NovelStage;
 	feedback?: string;
 	provider?: string;
+	part?: CaseStructurePart;
 };
 
 export type NeedsClarificationResponse = {

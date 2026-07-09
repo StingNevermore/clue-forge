@@ -67,6 +67,12 @@ export type QualityReport = {
 	problems: string[];
 };
 
+export type CaseStructurePart =
+	| "timeline"
+	| "characters"
+	| "clues"
+	| "quality_reports";
+
 export type CaseTruth = {
 	victim: string;
 	surfaceMystery: string;
@@ -180,17 +186,31 @@ export const generateCaseTruth = (
 		},
 	);
 
-export const generateCaseStructure = (
+export const generateCaseStructure = async (
 	id: string,
 	input: { feedback?: string; provider?: string },
-) =>
-	requestJson<{ version: string; state: NovelState }>(
-		`/api/novels/${id}/generate`,
-		{
-			method: "POST",
-			body: JSON.stringify({ stage: "case_structure", ...input }),
-		},
-	);
+) => {
+	const parts: CaseStructurePart[] = [
+		"timeline",
+		"characters",
+		"clues",
+		"quality_reports",
+	];
+	let result: { version: string; state: NovelState } | undefined;
+	for (const part of parts) {
+		result = await requestJson<{ version: string; state: NovelState }>(
+			`/api/novels/${id}/generate`,
+			{
+				method: "POST",
+				body: JSON.stringify({ stage: "case_structure", part, ...input }),
+			},
+		);
+	}
+	if (!result) {
+		throw new Error("结构设定生成失败");
+	}
+	return result;
+};
 
 export const confirmCaseTruth = (
 	id: string,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	applyCaseStructureGeneration,
+	applyCaseStructurePartGeneration,
 	applyConfirmation,
 	draftChapterFromState,
 	makeInitialState,
@@ -213,6 +214,71 @@ describe("novel workflow service", () => {
 		expect(next.qualityReports).toStrictEqual([
 			{ pass: true, questions: [], problems: [] },
 		]);
+	});
+
+	it("applies case structure parts and clears stale downstream structure", () => {
+		const state = makeInitialState({
+			title: "仪式杀人",
+			brief: {
+				keywords: ["现代", "刑警"],
+				style: "",
+				length: "30章左右",
+				limits: [],
+			},
+		});
+		state.stage = "case_structure";
+		state.timeline = [
+			{
+				time: "旧时间",
+				location: "旧地点",
+				actualEvent: "旧事件",
+				claimedEvent: "旧说法",
+				people: ["旧人物"],
+				readerKnowsAt: "第1章",
+				detectiveKnowsAt: "第2章",
+			},
+		];
+		state.characters = [
+			{
+				name: "旧人物",
+				role: "旧角色",
+				relationship: "旧关系",
+				motive: "旧动机",
+				secret: "旧秘密",
+				lie: "旧谎言",
+				truthStatus: "witness",
+			},
+		];
+		state.clues = [
+			{
+				id: "old",
+				description: "旧线索",
+				firstSeen: "第1章",
+				surfaceMeaning: "旧表层",
+				realMeaning: "旧真相",
+				payoff: "第2章",
+				fair: true,
+			},
+		];
+		state.qualityReports = [{ pass: true, questions: [], problems: [] }];
+
+		const next = applyCaseStructurePartGeneration(state, "timeline", [
+			{
+				time: "21:35",
+				location: "地下停车场",
+				actualEvent: "真凶转移尸体",
+				claimedEvent: "真凶声称在会议室",
+				people: ["林澈", "顾铭"],
+				readerKnowsAt: "第3章",
+				detectiveKnowsAt: "第18章",
+			},
+		]);
+
+		expect(next.stage).toBe("case_structure");
+		expect(next.timeline[0]?.actualEvent).toBe("真凶转移尸体");
+		expect(next.characters).toStrictEqual([]);
+		expect(next.clues).toStrictEqual([]);
+		expect(next.qualityReports).toStrictEqual([]);
 	});
 
 	it("confirms case_structure and locks structure fields", () => {

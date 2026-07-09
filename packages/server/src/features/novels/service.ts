@@ -1,8 +1,11 @@
 import type { LlmEnv } from "../../llm";
 import {
-	generateCaseStructure,
 	generateCaseTruthOptions,
 	generateChapterDraft,
+	generateCharacters,
+	generateClues,
+	generateQualityReports,
+	generateTimeline,
 } from "./llm";
 import {
 	createNovelRecord,
@@ -14,8 +17,11 @@ import {
 import type {
 	Brief,
 	CaseStructure,
+	CaseStructurePart,
 	CaseTruth,
 	ChapterDraft,
+	CharacterProfile,
+	Clue,
 	ConfirmStepRequest,
 	CreateNovelRequest,
 	GenerateStepRequest,
@@ -23,7 +29,9 @@ import type {
 	NovelStage,
 	NovelState,
 	NovelSummary,
+	QualityReport,
 	StageConflictResponse,
+	TimelineEvent,
 } from "./types";
 
 const uniqueTrimmed = (items: string[]) => [
@@ -210,6 +218,51 @@ export const applyCaseStructureGeneration = (
 	qualityReports: structure.qualityReports ?? [],
 });
 
+type CaseStructurePartValue =
+	| TimelineEvent[]
+	| CharacterProfile[]
+	| Clue[]
+	| QualityReport[];
+
+export const applyCaseStructurePartGeneration = (
+	state: NovelState,
+	part: CaseStructurePart,
+	value: CaseStructurePartValue,
+): NovelState => {
+	if (part === "timeline") {
+		return {
+			...state,
+			stage: "case_structure",
+			timeline: value as TimelineEvent[],
+			characters: [],
+			clues: [],
+			qualityReports: [],
+		};
+	}
+	if (part === "characters") {
+		return {
+			...state,
+			stage: "case_structure",
+			characters: value as CharacterProfile[],
+			clues: [],
+			qualityReports: [],
+		};
+	}
+	if (part === "clues") {
+		return {
+			...state,
+			stage: "case_structure",
+			clues: value as Clue[],
+			qualityReports: [],
+		};
+	}
+	return {
+		...state,
+		stage: "case_structure",
+		qualityReports: value as QualityReport[],
+	};
+};
+
 export const createNovel = (
 	env: CloudflareBindings,
 	input: CreateNovelRequest,
@@ -287,17 +340,57 @@ export const generateStep = async (
 		};
 	}
 	if (input.stage === "case_structure") {
-		const structure = await generateCaseStructure(
-			env as LlmEnv,
+		if (!input.part) {
+			return {
+				error: "stage_conflict",
+				message: "case_structure part is required",
+			};
+		}
+		const partValue =
+			input.part === "timeline"
+				? await generateTimeline(
+						env as LlmEnv,
+						state,
+						input.feedback,
+						input.provider,
+					)
+				: input.part === "characters"
+					? await generateCharacters(
+							env as LlmEnv,
+							state,
+							state.timeline,
+							input.feedback,
+							input.provider,
+						)
+					: input.part === "clues"
+						? await generateClues(
+								env as LlmEnv,
+								state,
+								state.timeline,
+								state.characters,
+								input.feedback,
+								input.provider,
+							)
+						: await generateQualityReports(
+								env as LlmEnv,
+								state,
+								{
+									timeline: state.timeline,
+									characters: state.characters,
+									clues: state.clues,
+								},
+								input.feedback,
+								input.provider,
+							);
+		const nextState = applyCaseStructurePartGeneration(
 			state,
-			input.feedback,
-			input.provider,
+			input.part,
+			partValue,
 		);
-		const nextState = applyCaseStructureGeneration(state, structure);
 		const version = await saveNovelVersion(
 			env,
 			novelId,
-			"case_structure_generation",
+			`case_structure_${input.part}_generation`,
 			nextState,
 		);
 		return { version, state: nextState };
