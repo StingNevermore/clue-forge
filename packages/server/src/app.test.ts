@@ -32,11 +32,11 @@ describe("API app", () => {
 		expect(response.headers.get("x-error-log-id")).toBeTruthy();
 		expect(warn).toHaveBeenCalledOnce();
 		expect(JSON.parse(warn.mock.calls[0]?.[0] ?? "{}")).toMatchObject({
-			message: "request returned error",
+			event: "request returned error",
+			message: "Not found",
 			method: "GET",
 			path: "/missing",
 			status: 404,
-			error: "Not found",
 		});
 	});
 
@@ -53,8 +53,8 @@ describe("API app", () => {
 		expect(error).toHaveBeenCalledOnce();
 		expect(JSON.parse(error.mock.calls[0]?.[0] ?? "{}")).toMatchObject({
 			id: body.errorLogId,
-			message: "request failed",
-			error: "Novel not found",
+			event: "request failed",
+			message: "Novel not found",
 			method: "GET",
 			path: "/novels/missing",
 		});

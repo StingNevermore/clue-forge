@@ -33,11 +33,11 @@ app.use("*", async (context, next) => {
 	const url = new URL(context.req.url);
 	const log = {
 		id,
-		message: "request returned error",
+		event: "request returned error",
+		message: await errorMessageFromResponse(context.res),
 		method: context.req.method,
 		path: url.pathname,
 		status: context.res.status,
-		error: await errorMessageFromResponse(context.res),
 	};
 	if (context.res.status >= 500) {
 		console.error(JSON.stringify(log));
@@ -54,13 +54,15 @@ app.notFound((context) => context.json({ error: "Not found" }, 404));
 app.onError(async (error, context) => {
 	const url = new URL(context.req.url);
 	const id = errorLogId();
+	const message = error instanceof Error ? error.message : String(error);
 	console.error(
 		JSON.stringify({
 			id,
-			message: "request failed",
-			error: error instanceof Error ? error.message : String(error),
+			event: "request failed",
+			message,
 			method: context.req.method,
 			path: url.pathname,
+			stack: error instanceof Error ? error.stack : undefined,
 		}),
 	);
 	context.header("x-error-log-id", id);
